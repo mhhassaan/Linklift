@@ -1,4 +1,7 @@
-# TweetX
+<p align="center">
+  <img src="assets/logo.svg" alt="TweetX logo" width="128" height="128">
+</p>
+<h1 align="center">TweetX</h1>
 
 TweetX is a browser extension for Chrome and Firefox that copies clean X (Twitter) post links and adds photo copy and download actions.
 
