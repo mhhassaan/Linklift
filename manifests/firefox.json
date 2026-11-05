@@ -1,73 +1,128 @@
 {
-    "manifest_version":  3,
-    "name":  "TweetX",
-    "version":  "0.1.3",
-    "description":  "Copy clean proxy post links and copy or download X photos.",
-    "permissions":  [
-                        "storage",
-                        "clipboardWrite",
-                        "contextMenus",
-                        "downloads"
-                    ],
-    "host_permissions":  [
-                             "https://x.com/*",
-                             "https://www.x.com/*",
-                             "https://twitter.com/*",
-                             "https://www.twitter.com/*",
-                             "https://pbs.twimg.com/*"
-                         ],
-    "background":  {
-                       "scripts":  [
-                                       "background.js"
-                                   ],
-                       "persistent":  false
-                   },
-    "action":  {
-                   "default_popup":  "popup/index.html",
-                   "default_title":  "TweetX settings",
-                   "default_icon":  {
-                                        "16":  "icons/icon-16.png",
-                                        "32":  "icons/icon-32.png",
-                                        "48":  "icons/icon-48.png",
-                                        "128":  "icons/icon-128.png"
-                                    }
-               },
-    "browser_specific_settings":  {
-                                      "gecko":  {
-                                                    "id":  "tweetx@local.extension",
-                                                    "strict_min_version":  "128.0",
-                                                    "data_collection_permissions":  {
-                                                                                        "required":  [
-                                                                                                         "none"
-                                                                                                     ]
-                                                                                    }
-                                                }
-                                  },
-    "content_scripts":  [
-                            {
-                                "matches":  [
-                                                "https://x.com/*",
-                                                "https://www.x.com/*",
-                                                "https://twitter.com/*",
-                                                "https://www.twitter.com/*"
-                                            ],
-                                "js":  [
-                                           "content.js"
-                                       ],
-                                "css":  [
-                                            "feedback.css"
-                                        ],
-                                "run_at":  "document_start",
-                                "all_frames":  false
-                            }
-                        ],
-    "content_security_policy":  {
-                                    "extension_pages":  "script-src \u0027self\u0027; object-src \u0027self\u0027"
-                                },
-    "icons":  {
-                  "16":  "icons/icon-16.png",
-                  "32":  "icons/icon-32.png",
-                  "48":  "icons/icon-48.png",
-                  "128":  "icons/icon-128.png"
-              }
+  "manifest_version": 3,
+  "name": "TweetX",
+  "version": "0.2.0",
+  "description": "Clean embed links for X, Instagram, Reddit and TikTok, with X photo tools and per-site proxy settings.",
+  "permissions": [
+    "storage",
+    "clipboardWrite",
+    "contextMenus",
+    "downloads"
+  ],
+  "host_permissions": [
+    "https://x.com/*",
+    "https://www.x.com/*",
+    "https://twitter.com/*",
+    "https://www.twitter.com/*",
+    "https://pbs.twimg.com/*",
+    "https://instagram.com/*",
+    "https://www.instagram.com/*",
+    "https://reddit.com/*",
+    "https://www.reddit.com/*",
+    "https://old.reddit.com/*",
+    "https://new.reddit.com/*",
+    "https://m.reddit.com/*",
+    "https://sh.reddit.com/*",
+    "https://tiktok.com/*",
+    "https://www.tiktok.com/*"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ],
+    "persistent": false
+  },
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title": "TweetX settings",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "tweetx@local.extension",
+      "strict_min_version": "128.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://www.x.com/*",
+        "https://twitter.com/*",
+        "https://www.twitter.com/*"
+      ],
+      "js": [
+        "appearance.js",
+        "content.js"
+      ],
+      "css": [
+        "feedback.css"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://instagram.com/*",
+        "https://www.instagram.com/*",
+        "https://reddit.com/*",
+        "https://www.reddit.com/*",
+        "https://old.reddit.com/*",
+        "https://new.reddit.com/*",
+        "https://m.reddit.com/*",
+        "https://sh.reddit.com/*",
+        "https://tiktok.com/*",
+        "https://www.tiktok.com/*"
+      ],
+      "js": [
+        "social-page.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://instagram.com/*",
+        "https://www.instagram.com/*",
+        "https://reddit.com/*",
+        "https://www.reddit.com/*",
+        "https://old.reddit.com/*",
+        "https://new.reddit.com/*",
+        "https://m.reddit.com/*",
+        "https://sh.reddit.com/*",
+        "https://tiktok.com/*",
+        "https://www.tiktok.com/*"
+      ],
+      "js": [
+        "appearance.js",
+        "social-bridge.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "options_ui": {
+    "page": "dashboard/index.html",
+    "open_in_tab": true
+  }
 }

@@ -6,11 +6,11 @@ import vm from 'node:vm';
 test('both release packages reference present valid scripts and minimal browser-specific permissions',async()=>{
   for(const browser of ['chrome','firefox']) {
     const root=path.resolve('dist',browser),manifest=JSON.parse(await readFile(path.join(root,'manifest.json'),'utf8'));
-    const files=[manifest.action.default_popup,...manifest.content_scripts.flatMap(s=>[...s.js,...s.css]),...(browser==='chrome'?[manifest.background.service_worker]:manifest.background.scripts)];
+    const files=[manifest.action.default_popup,...manifest.content_scripts.flatMap(s=>[...s.js,...(s.css||[])]),...(browser==='chrome'?[manifest.background.service_worker]:manifest.background.scripts)];
     for(const file of files)await access(path.join(root,file));
     assert.equal(manifest.manifest_version,3);assert.equal(manifest.permissions.includes('offscreen'),browser==='chrome');
     assert.ok(!manifest.permissions.includes('clipboardRead'));assert.ok(!manifest.host_permissions.includes('<all_urls>'));
-    for(const script of ['content.js','background.js','popup/index.js',...(browser==='chrome'?['media/chrome.js']:[])]) {
+    for(const script of ['content.js','background.js','popup/index.js','dashboard/index.js','social-page.js','social-bridge.js','appearance.js',...(browser==='chrome'?['media/chrome.js']:[])]) {
       const code=await readFile(path.join(root,script),'utf8');new vm.Script(code,{filename:script});
       assert.ok(!code.includes('validation.configure'),`Fault controls leaked into ${browser}/${script}`);
     }
@@ -29,5 +29,18 @@ test('both browsers package real PNG icons for installation and toolbar use',asy
     }
     const popup=await readFile(path.join(root,manifest.action.default_popup),'utf8');
     assert.match(popup,/\.\.\/icons\/icon-48\.png/);
+  }
+});
+
+test('both browsers package the dashboard and explicitly scope social clipboard adapters',async()=>{
+  for(const browser of ['chrome','firefox']){
+    const root=path.resolve('dist',browser),manifest=JSON.parse(await readFile(path.join(root,'manifest.json'),'utf8'));
+    assert.equal(manifest.options_ui?.page,'dashboard/index.html');assert.equal(manifest.options_ui.open_in_tab,true);
+    for(const file of ['dashboard/index.html','dashboard/index.js','dashboard/style.css','social-page.js','social-bridge.js','appearance.js'])await access(path.join(root,file));
+    const page=manifest.content_scripts.find(entry=>entry.world==='MAIN');assert.ok(page);
+    assert.deepEqual(page.js,['social-page.js']);assert.equal(page.run_at,'document_start');
+    for(const host of ['www.instagram.com','www.reddit.com','www.tiktok.com'])assert.ok(page.matches.includes(`https://${host}/*`));
+    assert.ok(!page.matches.some(pattern=>pattern.includes('x.com')||pattern.includes('*://*')));
+    assert.ok(!manifest.permissions.includes('tabs'));assert.ok(!manifest.permissions.includes('clipboardRead'));
   }
 });

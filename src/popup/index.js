@@ -1,11 +1,115 @@
 import {getApi} from '../shared/api.js';
 import {request} from '../shared/protocol.js';
-import {normalizeService,repairSettings} from '../shared/settings.js';
-const api=getApi(),list=document.getElementById('services'),form=document.getElementById('add-service'),input=document.getElementById('domain'),status=document.getElementById('status');
-let settings,busy=false;
-function show(text,error=false){status.textContent=text;status.dataset.error=String(error);}
-function render(){list.replaceChildren();for(const domain of settings.services){const row=document.createElement('div');row.className='service';const radio=document.createElement('input');radio.type='radio';radio.name='service';radio.value=domain;radio.checked=domain===settings.activeDomain;radio.id=`service-${domain}`;radio.addEventListener('change',()=>save({...settings,activeDomain:domain}));const label=document.createElement('label');label.htmlFor=radio.id;label.textContent=domain;const remove=document.createElement('button');remove.textContent='×';remove.setAttribute('aria-label',`Remove ${domain}`);remove.addEventListener('click',()=>{const next={...settings,services:settings.services.filter(item=>item!==domain)};save(repairSettings(next).settings);});row.append(radio,label,remove);list.append(row);}}
-async function save(next){if(busy)return;busy=true;document.querySelectorAll('button,input').forEach(el=>{el.disabled=true;});try{settings=await request(api,'settings.replace','background',{settings:next});render();show('Saved');}catch{show('Could not save. Your previous settings remain active.',true);render();}finally{busy=false;document.querySelectorAll('button,input').forEach(el=>{el.disabled=false;});}}
-input.addEventListener('input',()=>{let preview='';try{preview=`Destination: https://${normalizeService(input.value)}`;}catch{}document.getElementById('preview').textContent=preview;});
-form.addEventListener('submit',event=>{event.preventDefault();if(!settings||busy)return;try{const domain=normalizeService(input.value);if(settings.services.includes(domain)){show('That service is already listed.',true);return;}if(settings.services.length>=20){show('Remove a service before adding another.',true);return;}void save({...settings,services:[...settings.services,domain]});input.value='';document.getElementById('preview').textContent='';}catch{show('Enter fixupx, fxtwitter, or an HTTPS domain without a path.',true);}});
-request(api,'settings.get','background').then(value=>{settings=value;render();},error=>{show(error.message==='CONFIG_VERSION'?'Settings are from a newer extension version. Reinstall that version to keep them.':'Could not load settings. Reload the extension and try again.',true);form.querySelectorAll('input,button').forEach(el=>{el.disabled=true;});});
+import {normalizeService,repairSettings,validateSettings,SETTINGS_KEY} from '../shared/settings.js';
+import {SOCIAL_KEY,socialSettings,socialPlatform} from '../shared/social.js';
+import {createIcon} from './icons.js';
+
+const PLATFORMS={x:{name:'X / Twitter',detail:'Post links + photo tools',example:'fixupx.com'},instagram:{name:'Instagram',detail:'Posts, reels & carousels',example:'zzinstagram.com'},reddit:{name:'Reddit',detail:'Posts & comment links',example:'vxreddit.com'},tiktok:{name:'TikTok',detail:'Videos & photo posts',example:'tfxktok.com'}};
+
+export function createSettingsView({document,api}){
+  const window=document.defaultView,dashboard=document.body.dataset.dashboard==='true',cards=document.getElementById('cards'),nav=document.getElementById('platforms'),status=document.getElementById('status');
+  let xSettings=null,social=null,selected='x',disposed=false,revision=0,xRevision=0,socialWrites=Promise.resolve();
+  const views=new Map(),busy=new Set(),queued=new Map();
+  const current=platform=>platform==='x'?xSettings:social?.[platform];
+  const show=(text,error=false)=>{status.textContent=text;status.dataset.error=String(error);};
+  function element(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;}
+  function icon(name){return createIcon(document,name,'material-icon');}
+  function choose(platform){
+    selected=platform;document.body.dataset.platform=platform;
+    nav?.querySelectorAll('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.platform===platform)));
+    cards.querySelectorAll('.platform-card').forEach(card=>{card.hidden=!dashboard&&card.dataset.site!==selected;});
+  }
+  function setBusy(platform,value){
+    if(value)busy.add(platform);else busy.delete(platform);
+    const card=views.get(platform)?.card;if(!card)return;
+    card.setAttribute('aria-busy',String(value));
+    card.querySelectorAll('button').forEach(node=>{node.disabled=value;});
+  }
+  async function save(platform,value){
+    if(busy.has(platform)){queued.set(platform,value);return;}setBusy(platform,true);
+    try{
+      if(platform==='x')xSettings=await request(api,'settings.replace','background',{settings:{version:1,...value}});
+      else{
+        const write=socialWrites.catch(()=>{}).then(async()=>{
+          const latest=socialSettings((await api.storage.local.get(SOCIAL_KEY))[SOCIAL_KEY]);
+          const next=socialSettings({...latest,[platform]:value});await api.storage.local.set({[SOCIAL_KEY]:next});social=next;
+        });socialWrites=write;await write;
+      }
+      if(!disposed){render();show('Saved. Your next copied link will use this service.');}
+    }catch{if(!disposed){render();show('Could not save. Your previous settings remain active.',true);}}
+    finally{if(!disposed){setBusy(platform,false);const next=queued.get(platform);queued.delete(platform);if(next)void save(platform,next);}}
+  }
+  function render(){
+    for(const [platform,info] of Object.entries(PLATFORMS)){
+      const settings=current(platform),previous=views.get(platform),signature=JSON.stringify(settings?.services??null);
+      if(previous?.signature===signature){
+        if(settings){
+          previous.card.querySelectorAll('input[type="radio"]').forEach(radio=>{radio.checked=radio.value===settings.activeDomain;});
+          previous.card.querySelector('.card-note').textContent='Copy link → '+settings.activeDomain;
+        }
+        continue;
+      }
+      const card=element('section','platform-card');card.dataset.site=platform;
+      views.set(platform,{card,signature});
+      if(previous)previous.card.replaceWith(card);else cards.append(card);
+      const heading=element('div','card-heading'),mark=element('span','platform-mark'),logo=createIcon(document,platform,'brand-logo brand-'+platform),title=element('div');
+      mark.setAttribute('aria-hidden','true');mark.append(logo);title.append(element('h2','',info.name),element('p','hint',info.detail));heading.append(mark,title);card.append(heading);
+      if(!settings){card.append(element('p','error','Could not load services. Reload to try again.'));continue;}
+      const list=element('div','services');list.setAttribute('role','radiogroup');list.setAttribute('aria-label',info.name+' embed service');
+      for(const domain of settings.services){
+        const row=element('div','service'),radio=element('input'),label=element('label','',domain),remove=element('button','remove');remove.append(icon('close'));
+        radio.type='radio';radio.name='service-'+platform;radio.value=domain;radio.id=platform+'-'+domain;radio.checked=domain===settings.activeDomain;label.htmlFor=radio.id;
+        radio.addEventListener('change',()=>void save(platform,{...current(platform),activeDomain:domain}));
+        remove.type='button';remove.setAttribute('aria-label','Remove '+domain+' from '+info.name);
+        remove.addEventListener('click',()=>{
+          const latest=current(platform),remaining={...latest,services:latest.services.filter(value=>value!==domain)};
+          const repaired=platform==='x'?repairSettings({version:1,...remaining}).settings:socialSettings({[platform]:remaining})[platform];
+          void save(platform,repaired);
+        });row.append(radio,label,remove);list.append(row);
+      }
+      card.append(list);
+      const form=element('form'),inputLabel=element('label','','Add a '+info.name+' service'),row=element('div','input-row'),input=element('input'),add=element('button','','Add');
+      input.type='text';input.id='domain-'+platform;inputLabel.htmlFor=input.id;input.placeholder=info.example;input.autocomplete='off';input.spellcheck=false;input.maxLength=270;input.required=true;add.type='submit';add.prepend(icon('add'));row.append(input,add);form.append(inputLabel,row);
+      form.addEventListener('submit',event=>{
+        event.preventDefault();if(busy.has(platform))return;
+        try{
+          const settings=current(platform);
+          const domain=normalizeService(input.value);
+          if(settings.services.includes(domain)){show('That service is already listed.',true);return;}
+          if(settings.services.length>=20){show('Remove a service before adding another.',true);return;}
+          void save(platform,{...settings,services:[...settings.services,domain]});
+        }catch{show('Enter an HTTPS domain without a path, such as proxy.example.',true);}
+      });card.append(form,element('p','card-note','Copy link → '+settings.activeDomain));setBusy(platform,busy.has(platform));
+    }
+    choose(selected);
+  }
+  if(!dashboard)for(const [platform,info] of Object.entries(PLATFORMS)){
+    const button=element('button','platform-tab',info.name);button.type='button';button.dataset.platform=platform;button.addEventListener('click',()=>choose(platform));nav.append(button);
+  }
+  const link=document.getElementById('dashboard');
+  if(link){link.replaceChildren(icon('dashboard'),element('span','','Dashboard'));link.href=api.runtime.getURL('dashboard/index.html');link.addEventListener('click',event=>{event.preventDefault();void api.tabs.create({url:link.href});});}
+  async function appearance(){
+    try{
+      const [tab]=await api.tabs.query({active:true,currentWindow:true});
+      if(disposed)return;
+      choose(socialPlatform(tab?.url)||'x');
+      if(tab?.id){try{const result=await api.tabs.sendMessage(tab.id,{type:'tweetx.appearance'});if(!disposed&&['light','dark'].includes(result?.mode))document.body.dataset.mode=result.mode;}catch{}}
+    }catch{}
+  }
+  function changed(changes,area){
+    if(area!=='local')return;
+    if(changes[SOCIAL_KEY]){revision++;social=socialSettings(changes[SOCIAL_KEY].newValue);}
+    if(changes[SETTINGS_KEY]){xRevision++;try{xSettings=validateSettings(changes[SETTINGS_KEY].newValue);}catch{xSettings=null;}}
+    if(!disposed&&(changes[SOCIAL_KEY]||changes[SETTINGS_KEY]))render();
+  }
+  api.storage.onChanged.addListener(changed);
+  const initialRevision=revision,initialXRevision=xRevision;
+  const ready=Promise.allSettled([
+    request(api,'settings.get','background').then(value=>{if(xRevision===initialXRevision)xSettings=value;}),
+    api.storage.local.get(SOCIAL_KEY).then(stored=>{if(revision===initialRevision)social=socialSettings(stored[SOCIAL_KEY]);}),
+    appearance()
+  ]).then(results=>{if(disposed)return;render();if(results.some(result=>result.status==='rejected'))show('Some settings could not load. Reload this page to try again.',true);});
+  function dispose(){disposed=true;api.storage.onChanged.removeListener(changed);window.removeEventListener('pagehide',dispose);}
+  window.addEventListener('pagehide',dispose);return {ready,dispose};
+}
+if(typeof document!=='undefined'&&getApi()?.runtime?.id)createSettingsView({document,api:getApi()});

@@ -9,9 +9,9 @@ const keys=(value,names)=>!!value && Object.keys(value).sort().join(',')===[...n
 export function createBackground({api,media,browserKind,clock=nativeClock}) {
   const records=new Map(),documents=new Map(),workingTabs=new Set(),ports=new Map(),timers=new Set(),expiredUrls=new Map(),barriers=new Map(),operations=new Map();
   let settings=null,settingsError=null,disposed=false,saveChain=Promise.resolve(),writeChain=Promise.resolve();
-  const popupUrl=api.runtime.getURL('popup/index.html'),helperUrl=api.runtime.getURL('media/chrome.html');
+  const popupUrl=api.runtime.getURL('popup/index.html'),dashboardUrl=api.runtime.getURL('dashboard/index.html'),helperUrl=api.runtime.getURL('media/chrome.html');
   const isContent=sender=>sender.id===api.runtime.id && sender.tab?.id!==undefined && (sender.frameId??0)===0 && isXUrl(sender.url);
-  const isPopup=sender=>sender.id===api.runtime.id && !sender.tab && sender.url===popupUrl || sender.id===api.runtime.id && sender.url===popupUrl;
+  const isPopup=sender=>sender.id===api.runtime.id && (sender.url===popupUrl||sender.url===dashboardUrl);
   const persist=()=>{const value={version:1,records:[...records.values()]};saveChain=saveChain.catch(()=>{}).then(()=>api.storage.session.set({[SESSION_KEY]:value}));return saveChain;};
   async function send(tabId,command,payload) {
     const m=message(command,'content',payload);
