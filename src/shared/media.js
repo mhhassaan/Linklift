@@ -40,5 +40,5 @@ export async function fetchPhoto(input,{fetch:fetcher=globalThis.fetch,signal,de
 export function imageFilename(mediaId,postId,type) {
   const ext={'image/png':'png','image/jpeg':'jpg','image/webp':'webp'}[type];
   if(!ext)throw new Error('DECODE_FAILED');
-  return `tweetx-${String(postId || 'photo').replace(/[^\d]/g,'') || 'photo'}-${String(mediaId).replace(/[^A-Za-z0-9_-]/g,'').slice(0,128)}.${ext}`;
+  return `linklift-${String(postId || 'photo').replace(/[^\d]/g,'') || 'photo'}-${String(mediaId).replace(/[^A-Za-z0-9_-]/g,'').slice(0,128)}.${ext}`;
 }

@@ -27,7 +27,7 @@ export function socialSettings(value){
       activeDomain=fallback;
       if(!services.includes(fallback)){if(services.length===20)services.pop();services.push(fallback);}
     }
-    return [platform,{services,activeDomain}];
+    return [platform,{services,activeDomain,...(typeof stored?.enabled==='boolean'?{enabled:stored.enabled}:{})}];
   }));
 }
 export function transformSocialUrl(input,domain){

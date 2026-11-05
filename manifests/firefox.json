@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "TweetX",
-  "version": "0.2.0",
+  "name": "Linklift",
+  "version": "0.3.0",
   "description": "Clean embed links for X, Instagram, Reddit and TikTok, with X photo tools and per-site proxy settings.",
   "permissions": [
     "storage",
@@ -34,7 +34,7 @@
   },
   "action": {
     "default_popup": "popup/index.html",
-    "default_title": "TweetX settings",
+    "default_title": "Linklift settings",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",

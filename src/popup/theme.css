@@ -1,0 +1,53 @@
+/* Linklift brand tokens. One palette across every platform. */
+:root {
+  --font: "Varela Round", sans-serif;
+  --lift-blue: #2447e8;
+  --sky-blue: #08a5f5;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --bg: #0c1222;
+  --surface: #151e32;
+  --raised: #1b2740;
+  --text: #f0f4ff;
+  --muted: #a2b0cc;
+  --border: #2d3b55;
+  --accent: #9bb4ff;
+  --primary: #3659ed;
+  --on-primary: #fff;
+  --selected: #25365b;
+  --hover: #1d2b45;
+  --danger: #ff9eaa;
+  --shadow: 0 8px 30px #03081718;
+  color-scheme: dark;
+}
+body[data-mode="light"] {
+  --bg: #f5f7fc;
+  --surface: #fff;
+  --raised: #edf1fa;
+  --text: #17233e;
+  --muted: #5a6882;
+  --border: #d9e1ef;
+  --accent: #2447e8;
+  --primary: #2447e8;
+  --selected: #eaf0ff;
+  --hover: #f0f4fc;
+  --danger: #b22a42;
+  --shadow: 0 8px 30px #17233e06;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+  body:not([data-mode]) {
+    --bg: #f5f7fc; --surface: #fff; --raised: #edf1fa; --text: #17233e;
+    --muted: #5a6882; --border: #d9e1ef; --accent: #2447e8; --primary: #2447e8;
+    --selected: #eaf0ff; --hover: #f0f4fc; --danger: #b22a42; --shadow: 0 8px 30px #17233e06;
+    color-scheme: light;
+  }
+}

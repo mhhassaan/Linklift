@@ -20,10 +20,11 @@ export function normalizeService(input) {
 
 export function validateSettings(value) {
   if (value?.version !== 1) throw new Error('CONFIG_VERSION');
-  if (Object.keys(value).sort().join(',') !== 'activeDomain,services,version' || !Array.isArray(value.services) || value.services.length < 1 || value.services.length > 20) throw new Error('CONFIG_INVALID');
+  const enabled=Object.hasOwn(value,'enabled')?{enabled:value.enabled}:{};
+  if (Object.keys(value).filter(key=>key!=='enabled').sort().join(',') !== 'activeDomain,services,version' || Object.hasOwn(value,'enabled')&&typeof value.enabled!=='boolean' || !Array.isArray(value.services) || value.services.length < 1 || value.services.length > 20) throw new Error('CONFIG_INVALID');
   const services = value.services.map(normalizeService);
   if (new Set(services).size !== services.length || !services.includes(value.activeDomain)) throw new Error('CONFIG_INVALID');
-  return {version:1,services,activeDomain:normalizeService(value.activeDomain)};
+  return {version:1,services,activeDomain:normalizeService(value.activeDomain),...enabled};
 }
 
 export function repairSettings(value) {
@@ -39,6 +40,6 @@ export function repairSettings(value) {
     activeDomain='fixupx.com';
     if(!services.includes(activeDomain)) { if(services.length===20) services.pop(); services.push(activeDomain); }
   }
-  const settings={version:1,services,activeDomain};
+  const settings={version:1,services,activeDomain,...(typeof value.enabled==='boolean'?{enabled:value.enabled}:{})};
   return {settings,repaired:JSON.stringify(value)!==JSON.stringify(settings)};
 }

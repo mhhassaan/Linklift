@@ -18,3 +18,11 @@ test('preserves an unknown newer schema instead of overwriting it', () => {
   assert.throws(() => rules.repairSettings(newer), {message:'CONFIG_VERSION'});
   assert.equal(newer.extra,'keep');
 });
+
+test('accepts and repairs the optional per-site rewriting switch without changing legacy defaults',()=>{
+  const legacy={version:1,services:['custom.example'],activeDomain:'custom.example'};
+  assert.deepEqual(rules.validateSettings(legacy),legacy);
+  assert.equal(rules.validateSettings({...legacy,enabled:false}).enabled,false);
+  assert.equal(rules.repairSettings({...legacy,enabled:false}).settings.enabled,false);
+  assert.throws(()=>rules.validateSettings({...legacy,enabled:'false'}));
+});

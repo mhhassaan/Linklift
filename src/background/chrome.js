@@ -16,4 +16,4 @@ if(typeof __VALIDATION__!=='undefined'&&__VALIDATION__){media.configure=payload=
 return media;
 }
 const api=getApi();
-if(api?.runtime){const background=createBackground({api,media:createChromeMedia(api),browserKind:'chrome'});background.ready.catch(error=>console.error('TweetX initialization:',error.message));}
+if(api?.runtime){const background=createBackground({api,media:createChromeMedia(api),browserKind:'chrome'});background.ready.catch(error=>console.error('Linklift initialization:',error.message));}

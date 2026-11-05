@@ -33,6 +33,14 @@ function openShareMenu(dom,{onNativeCopy=()=>{},onOther=()=>{}}={}) {
   menu.append(copy,other);menu.addEventListener('keydown',event=>{if(event.key==='Escape')menu.remove();});dom.window.document.body.append(menu);
   return {menu,copy,other};
 }
+
+test('disabled X rewriting leaves its native Copy link action untouched',async()=>{
+  const dom=await fixture('timeline'),api=apiFake(),copied=[];let native=0;
+  api.runtime.sendMessage=async m=>({v:1,requestId:m.requestId,ok:true,result:m.command==='settings.get'?{...defaults(),enabled:false}:{}});
+  const controller=content.createContent({window:dom.window,api,isTrusted:()=>true,clipboard:{writeText:async text=>copied.push(text)}});await controller.ready;
+  dom.window.document.querySelector('#share').click();const menu=openShareMenu(dom,{onNativeCopy:()=>native++});await tick();menu.copy.click();await tick();
+  assert.equal(native,1);assert.deepEqual(copied,[]);assert.equal(dom.window.document.body.textContent.includes('Link copied'),false);controller.dispose();dom.window.close();
+});
 test('opening Share only opens the native menu without copying or notifying',async()=>{
   assert.equal(typeof content.createContent,'function','Content controller must exist');
   const dom=await fixture('timeline');const api=apiFake();const copied=[];

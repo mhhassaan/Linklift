@@ -172,3 +172,36 @@ test('quick choices save the latest selection and concurrent platform saves reta
   assert.equal(ctx.local['tweetx.social'].reddit.activeDomain,'vxreddit.com');assert.equal(ctx.local['tweetx.social'].tiktok.activeDomain,'tnktok.com');
   controller.dispose();dom.window.close();
 });
+
+test('disabling a social site copies its exact original URL and re-enabling restores its selected proxy',async()=>{
+  const ctx=setup(),original='https://instagram.com/p/ABC/?igsh=tracking#photo';
+  ctx.controller.configure({activeDomain:'custom.example',enabled:false});ctx.click('copy');await ctx.clipboard.writeText(original);assert.equal(ctx.copied.at(-1),original);
+  const settings=urls.socialSettings({instagram:{services:['custom.example'],activeDomain:'custom.example',enabled:false}});
+  assert.equal(settings.instagram.enabled,false);assert.notEqual(settings.reddit.enabled,false);
+  ctx.controller.configure({...settings.instagram,enabled:true});ctx.click('copy');await ctx.clipboard.writeText(original);assert.equal(ctx.copied.at(-1),'https://custom.example/p/ABC/');
+  ctx.controller.dispose();ctx.dom.window.close();
+});
+
+test('dashboard toggles persist per platform in place and retain the chosen service',async()=>{
+  const dom=new JSDOM('<main id="cards"></main><p id="status"></p>'),ctx=browserContext();dom.window.document.body.dataset.dashboard='true';
+  let xSettings={version:1,services:['custom.example'],activeDomain:'custom.example'};
+  ctx.api.runtime.sendMessage=async m=>{if(m.command==='settings.replace')xSettings=m.payload.settings;return {v:1,requestId:m.requestId,ok:true,result:xSettings};};ctx.api.tabs.query=async()=>[];
+  const controller=ui.createSettingsView({document:dom.window.document,api:ctx.api});await controller.ready;
+  const card=dom.window.document.querySelector('[data-site="reddit"]'),toggle=card.querySelector('[role="switch"]');assert.ok(toggle);assert.equal(toggle.checked,true);
+  toggle.checked=false;toggle.dispatchEvent(new dom.window.Event('change'));await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(ctx.local['tweetx.social'].reddit.enabled,false);assert.equal(ctx.local['tweetx.social'].reddit.activeDomain,'vxreddit.com');assert.notEqual(ctx.local['tweetx.social'].tiktok.enabled,false);assert.equal(dom.window.document.querySelector('[data-site="reddit"]'),card);assert.match(card.querySelector('.card-note').textContent,/Original links/);
+  const xToggle=dom.window.document.querySelector('[data-site="x"] [role="switch"]');xToggle.checked=false;xToggle.dispatchEvent(new dom.window.Event('change'));await new Promise(resolve=>setImmediate(resolve));assert.equal(xSettings.enabled,false);assert.equal(xSettings.activeDomain,'custom.example');
+  toggle.checked=true;toggle.dispatchEvent(new dom.window.Event('change'));await new Promise(resolve=>setImmediate(resolve));assert.equal(ctx.local['tweetx.social'].reddit.enabled,true);
+  controller.dispose();dom.window.close();
+});
+
+test('popup save feedback expires and switching platforms clears stale messages',async()=>{
+  const dom=new JSDOM('<nav id="platforms"></nav><main id="cards"></main><p id="status"></p>'),ctx=browserContext();
+  ctx.api.runtime.sendMessage=async m=>({v:1,requestId:m.requestId,ok:true,result:{version:1,services:['fixupx.com'],activeDomain:'fixupx.com'}});ctx.api.tabs.query=async()=>[];
+  const controller=ui.createSettingsView({document:dom.window.document,api:ctx.api});await controller.ready;
+  let expire;dom.window.setTimeout=(fn,ms)=>{assert.equal(ms,2600);expire=fn;return 1;};dom.window.clearTimeout=()=>{};
+  const toggle=dom.window.document.querySelector('[data-site="reddit"] [role="switch"]');toggle.checked=false;toggle.dispatchEvent(new dom.window.Event('change'));await new Promise(resolve=>setImmediate(resolve));
+  assert.match(dom.window.document.getElementById('status').textContent,/Saved/);expire();assert.equal(dom.window.document.getElementById('status').textContent,'');
+  toggle.checked=true;toggle.dispatchEvent(new dom.window.Event('change'));await new Promise(resolve=>setImmediate(resolve));assert.match(dom.window.document.getElementById('status').textContent,/Saved/);
+  dom.window.document.querySelector('nav button[data-platform="instagram"]').click();assert.equal(dom.window.document.getElementById('status').textContent,'');controller.dispose();dom.window.close();
+});

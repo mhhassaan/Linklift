@@ -66,7 +66,7 @@ export function createBackground({api,media,browserKind,clock=nativeClock}) {
     await reconcile();
     await api.contextMenus.removeAll();
     const patterns=['https://x.com/*','https://www.x.com/*','https://twitter.com/*','https://www.twitter.com/*'];
-    api.contextMenus.create({id:'tweetx',title:'TweetX',contexts:['page','image','link'],documentUrlPatterns:patterns});
+    api.contextMenus.create({id:'tweetx',title:'Linklift',contexts:['page','image','link'],documentUrlPatterns:patterns});
     for(const [id,title] of [['tweetx-copy','Copy image'],['tweetx-download','Download image']])api.contextMenus.create({id,parentId:'tweetx',title,contexts:['page','image','link'],documentUrlPatterns:patterns});
   })();
   async function handle(m,sender) {

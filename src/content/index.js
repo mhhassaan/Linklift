@@ -50,7 +50,7 @@ export function createContent({window,api,clipboard=window.navigator.clipboard,i
     const {original,button:trigger}=captured;
     clearShare();
     if(bypass){const allowed=bypass.url===original && bypass.expires>now() && bypass.location===window.location.href;bypass=null;if(allowed)return;}
-    if(!settings)return;
+    if(!settings||settings.enabled===false)return;
     let link;try{link=transformPostUrl(original,settings.activeDomain);}catch{return;}
     // Replace only X's Copy link action so its handler cannot overwrite the proxy URL.
     event.stopImmediatePropagation();event.preventDefault();

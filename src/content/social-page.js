@@ -10,7 +10,7 @@ export function installSocialClipboard({window,isTrusted=event=>event.isTrusted,
   let domain=null,armedUntil=0,post=null,disposed=false;
   const clipboard=window.navigator.clipboard,original=clipboard?.writeText;
   function configure(value){
-    try{domain=normalizeService(value?.activeDomain);}catch{domain=null;}
+    try{domain=value?.enabled===false?null:normalizeService(value?.activeDomain);}catch{domain=null;}
   }
   function transform(text){
     const armed=armedUntil>now();armedUntil=0;
