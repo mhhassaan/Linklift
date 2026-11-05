@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="Linklift logo" width="128" height="128">
+  <img src="assets/linklift-readme-logo.png" alt="Linklift — Better links. Better previews." width="195">
 </p>
 <h1 align="center">Linklift</h1>
 
