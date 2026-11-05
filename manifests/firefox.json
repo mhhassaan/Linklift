@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Linklift",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Clean embed links for X, Instagram, Reddit and TikTok, with X photo tools and per-site proxy settings.",
   "permissions": [
     "storage",
