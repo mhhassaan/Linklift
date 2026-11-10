@@ -3,6 +3,18 @@ import assert from 'node:assert/strict';
 import {readFile,access,readdir} from 'node:fs/promises';
 import path from 'node:path';
 import vm from 'node:vm';
+
+test('Manifest V3 source and release manifests omit the unsupported persistent background setting',async()=>{
+  for(const browser of ['chrome','firefox']){
+    for(const file of [`manifests/${browser}.json`,`dist/${browser}/manifest.json`]){
+      const manifest=JSON.parse(await readFile(file,'utf8'));
+      assert.equal(manifest.manifest_version,3);
+      assert.equal(Object.hasOwn(manifest.background,'persistent'),false,`${file} must not declare background.persistent`);
+      if(browser==='firefox')assert.deepEqual(manifest.background.scripts,['background.js']);
+      else assert.equal(manifest.background.service_worker,'background.js');
+    }
+  }
+});
 test('both release packages reference present valid scripts and minimal browser-specific permissions',async()=>{
   for(const browser of ['chrome','firefox']) {
     const root=path.resolve('dist',browser),manifest=JSON.parse(await readFile(path.join(root,'manifest.json'),'utf8'));
