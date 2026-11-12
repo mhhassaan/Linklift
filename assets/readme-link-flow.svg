@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="142" viewBox="0 0 900 142" role="img" aria-labelledby="title desc">
+  <title id="title">From post link to clean embed link</title>
+  <desc id="desc">Choosing Copy link changes x.com/user/status/123?s=20 to fixupx.com/user/status/123, removing tracking.</desc>
+  <rect width="900" height="142" rx="20" fill="#0c1222"/>
+  <rect x="20" y="22" width="386" height="98" rx="14" fill="#171f32"/>
+  <rect x="494" y="22" width="386" height="98" rx="14" fill="#171f32"/>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <text x="42" y="51" fill="#aebbd3" font-size="13" font-weight="700">ORIGINAL POST LINK</text>
+    <text x="42" y="84" fill="#f5f7fc" font-size="18">x.com/user/status/123<tspan fill="#ffb5bd">?s=20</tspan></text>
+    <text x="516" y="51" fill="#55bbff" font-size="13" font-weight="700">CLEAN EMBED LINK</text>
+    <text x="516" y="84" fill="#f5f7fc" font-size="18"><tspan fill="#55bbff">fixupx.com</tspan>/user/status/123</text>
+  </g>
+  <circle cx="450" cy="71" r="25" fill="#3454ff"/>
+  <path d="M439 71h22m-8-8 8 8-8 8" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
