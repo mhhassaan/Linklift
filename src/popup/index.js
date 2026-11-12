@@ -3,6 +3,7 @@ import {request} from '../shared/protocol.js';
 import {normalizeService,repairSettings,validateSettings,SETTINGS_KEY} from '../shared/settings.js';
 import {SOCIAL_KEY,socialSettings,socialPlatform} from '../shared/social.js';
 import {createIcon} from './icons.js';
+import {DOWNLOAD_KEY,downloadEnabled} from '../download/model.js';
 
 const PLATFORMS={x:{name:'X / Twitter',detail:'Post links + photo tools',example:'fixupx.com'},instagram:{name:'Instagram',detail:'Posts, reels & carousels',example:'zzinstagram.com'},reddit:{name:'Reddit',detail:'Posts & comment links',example:'vxreddit.com'},tiktok:{name:'TikTok',detail:'Videos & photo posts',example:'tfxktok.com'}};
 
@@ -10,6 +11,7 @@ export function createSettingsView({document,api}){
   const window=document.defaultView,dashboard=document.body.dataset.dashboard==='true',cards=document.getElementById('cards'),nav=document.getElementById('platforms'),status=document.getElementById('status');
   let xSettings=null,social=null,selected='x',disposed=false,revision=0,xRevision=0,socialWrites=Promise.resolve(),statusTimer=null;
   const views=new Map(),busy=new Set(),queued=new Map();
+  let downloads={},downloadWrites=Promise.resolve(),downloadRevision=0;
   const current=platform=>platform==='x'?xSettings:social?.[platform];
   const note=settings=>settings.enabled===false?'Original links · rewriting off':'Copy link → '+settings.activeDomain;
   function clearStatus(){window.clearTimeout(statusTimer);statusTimer=null;status.textContent='';}
@@ -54,6 +56,7 @@ export function createSettingsView({document,api}){
           previous.card.querySelector('.card-note').textContent=note(settings);
           previous.card.querySelector('[role="switch"]').checked=settings.enabled!==false;
           previous.card.querySelector('.toggle-state').textContent=settings.enabled===false?'Off':'On';
+          previous.card.querySelector('[data-download-toggle]').checked=downloadEnabled(downloads,platform);
         }
         continue;
       }
@@ -90,7 +93,12 @@ export function createSettingsView({document,api}){
           if(settings.services.length>=20){show('Remove a service before adding another.',true);return;}
           void save(platform,{...settings,services:[...settings.services,domain]});
         }catch{show('Enter an HTTPS domain without a path, such as proxy.example.',true);}
-      });card.append(form,element('p','card-note',note(settings)));setBusy(platform,busy.has(platform));
+      });card.append(form,element('p','card-note',note(settings)));
+      const downloadLabel=element('label','download-setting'),downloadToggle=element('input');downloadToggle.type='checkbox';downloadToggle.dataset.downloadToggle='';downloadToggle.checked=downloadEnabled(downloads,platform);downloadToggle.setAttribute('aria-label','Show download buttons on '+info.name);downloadLabel.append(downloadToggle,element('span','','Show media download buttons'));card.append(downloadLabel);
+      downloadToggle.addEventListener('change',()=>{
+        const enabled=downloadToggle.checked;downloadToggle.disabled=true;
+        downloadWrites=downloadWrites.catch(()=>{}).then(async()=>{const latest=(await api.storage.local.get(DOWNLOAD_KEY))[DOWNLOAD_KEY]||{};const next={...latest,[platform]:enabled};await api.storage.local.set({[DOWNLOAD_KEY]:next});downloads=next;}).then(()=>{if(!disposed){render();show(enabled?'Download buttons enabled.':'Download buttons hidden.');}},()=>{if(!disposed){render();show('Could not save download preference.',true);}}).finally(()=>{downloadToggle.disabled=false;});
+      });setBusy(platform,busy.has(platform));
     }
     choose(selected);
   }
@@ -111,13 +119,15 @@ export function createSettingsView({document,api}){
     if(area!=='local')return;
     if(changes[SOCIAL_KEY]){revision++;social=socialSettings(changes[SOCIAL_KEY].newValue);}
     if(changes[SETTINGS_KEY]){xRevision++;try{xSettings=validateSettings(changes[SETTINGS_KEY].newValue);}catch{xSettings=null;}}
-    if(!disposed&&(changes[SOCIAL_KEY]||changes[SETTINGS_KEY]))render();
+    if(changes[DOWNLOAD_KEY]){downloadRevision++;downloads=changes[DOWNLOAD_KEY].newValue||{};}
+    if(!disposed&&(changes[SOCIAL_KEY]||changes[SETTINGS_KEY]||changes[DOWNLOAD_KEY]))render();
   }
   api.storage.onChanged.addListener(changed);
-  const initialRevision=revision,initialXRevision=xRevision;
+  const initialRevision=revision,initialXRevision=xRevision,initialDownloadRevision=downloadRevision;
   const ready=Promise.allSettled([
     request(api,'settings.get','background').then(value=>{if(xRevision===initialXRevision)xSettings=value;}),
     api.storage.local.get(SOCIAL_KEY).then(stored=>{if(revision===initialRevision)social=socialSettings(stored[SOCIAL_KEY]);}),
+    api.storage.local.get(DOWNLOAD_KEY).then(stored=>{if(downloadRevision===initialDownloadRevision)downloads=stored[DOWNLOAD_KEY]||{};}),
     appearance()
   ]).then(results=>{if(disposed)return;render();if(results.some(result=>result.status==='rejected'))show('Some settings could not load. Reload this page to try again.',true);});
   function dispose(){disposed=true;clearStatus();api.storage.onChanged.removeListener(changed);window.removeEventListener('pagehide',dispose);}

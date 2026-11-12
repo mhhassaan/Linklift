@@ -1,0 +1,12 @@
+Linklift includes unmodified portions of the following browser-local libraries:
+
+gifenc 1.0.3 — Copyright Matt DesLauriers — MIT
+https://github.com/mattdesl/gifenc/tree/v1.0.3
+License: gifenc-MIT.txt
+
+Mediabunny 1.65.2 — Copyright Vanilagy — Mozilla Public License 2.0
+https://github.com/Vanilagy/mediabunny/tree/v1.65.2
+License: mediabunny-MPL-2.0.txt
+Corresponding unmodified source for this version is also available at:
+https://registry.npmjs.org/mediabunny/-/mediabunny-1.65.2.tgz
+The tarball includes the src directory. Linklift does not modify these files.

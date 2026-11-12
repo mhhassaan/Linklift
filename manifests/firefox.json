@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Linklift",
-  "version": "0.3.2",
-  "description": "Clean embed links for X, Instagram, Reddit and TikTok, with X photo tools and per-site proxy settings.",
+  "version": "0.4.0",
+  "description": "Clean embed links and local media downloads for X, Instagram, Reddit and TikTok, with per-site settings.",
   "permissions": [
     "storage",
     "clipboardWrite",
@@ -24,7 +24,24 @@
     "https://m.reddit.com/*",
     "https://sh.reddit.com/*",
     "https://tiktok.com/*",
-    "https://www.tiktok.com/*"
+    "https://www.tiktok.com/*",
+    "https://video.twimg.com/*",
+    "https://*.cdninstagram.com/*",
+    "https://*.fbcdn.net/*",
+    "https://i.redd.it/*",
+    "https://preview.redd.it/*",
+    "https://external-preview.redd.it/*",
+    "https://v.redd.it/*",
+    "https://*.tiktokcdn.com/*",
+    "https://*.tiktokcdn-us.com/*",
+    "https://*.tiktokcdn-eu.com/*",
+    "https://*.tiktokv.com/*",
+    "https://*.tiktokv.us/*",
+    "https://*.byteoversea.com/*",
+    "https://*.ibytedtos.com/*",
+    "https://v16-webapp-prime.tiktok.com/*",
+    "https://v19-webapp-prime.tiktok.com/*",
+    "https://packaged-media.redd.it/*"
   ],
   "background": {
     "scripts": [
@@ -106,6 +123,53 @@
       "js": [
         "appearance.js",
         "social-bridge.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://www.x.com/*",
+        "https://twitter.com/*",
+        "https://www.twitter.com/*",
+        "https://instagram.com/*",
+        "https://www.instagram.com/*",
+        "https://reddit.com/*",
+        "https://www.reddit.com/*",
+        "https://old.reddit.com/*",
+        "https://new.reddit.com/*",
+        "https://m.reddit.com/*",
+        "https://sh.reddit.com/*",
+        "https://tiktok.com/*",
+        "https://www.tiktok.com/*"
+      ],
+      "js": [
+        "download/page.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://www.x.com/*",
+        "https://twitter.com/*",
+        "https://www.twitter.com/*",
+        "https://instagram.com/*",
+        "https://www.instagram.com/*",
+        "https://reddit.com/*",
+        "https://www.reddit.com/*",
+        "https://old.reddit.com/*",
+        "https://new.reddit.com/*",
+        "https://m.reddit.com/*",
+        "https://sh.reddit.com/*",
+        "https://tiktok.com/*",
+        "https://www.tiktok.com/*"
+      ],
+      "js": [
+        "download/content.js"
       ],
       "run_at": "document_start",
       "all_frames": false

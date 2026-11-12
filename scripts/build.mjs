@@ -5,6 +5,7 @@ const validation=process.argv.includes('--mode=validation');
 for(const browser of ['chrome','firefox']) {
   const out=path.resolve('dist',...(validation?['validation']:[]),browser);
   const entries={'content':'src/content/index.js','social-page':'src/content/social-page.js','social-bridge':'src/content/social-bridge.js','appearance':'src/content/appearance.js','background':`src/background/${browser}.js`,'popup/index':'src/popup/index.js','dashboard/index':'src/popup/index.js'};
+  Object.assign(entries,{'download/page':'src/download/page.js','download/content':'src/download/content.js','download/gif-worker':'src/download/gif-worker.js'});
   if(browser==='chrome')entries['media/chrome']='src/media/chrome.js';
   if(validation)entries['validation/index']='tests/harness/index.js';
   await mkdir(out,{recursive:true});
@@ -15,6 +16,7 @@ for(const browser of ['chrome','firefox']) {
   for(const name of ['x','instagram','reddit','tiktok'])copies.push([`assets/brands/${name}.svg`,`brands/${name}.svg`]);
   for(const name of ['dashboard','add','close'])copies.push([`assets/material/${name}.svg`,`material/${name}.svg`]);
   copies.push(['assets/fonts/VarelaRound-Regular.ttf','fonts/VarelaRound-Regular.ttf'],['assets/fonts/OFL.txt','fonts/OFL.txt'],['assets/material/LICENSE.txt','material/LICENSE.txt'],['assets/brands/LICENSE.txt','brands/LICENSE.txt']);
+  copies.push(['node_modules/gifenc/LICENSE.md','licenses/gifenc-MIT.txt'],['node_modules/mediabunny/LICENSE','licenses/mediabunny-MPL-2.0.txt'],['assets/media-notices.txt','licenses/media-notices.txt']);
   if(browser==='chrome')copies.push(['src/media/chrome.html','media/chrome.html']);
   if(validation)copies.push(['tests/harness/index.html','validation/index.html']);
   for(const [source,dest] of copies){await mkdir(path.dirname(path.join(out,dest)),{recursive:true});await copyFile(source,path.join(out,dest));}

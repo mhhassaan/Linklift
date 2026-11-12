@@ -56,3 +56,13 @@ test('both browsers package the dashboard and explicitly scope social clipboard 
     assert.ok(!manifest.permissions.includes('tabs'));assert.ok(!manifest.permissions.includes('clipboardRead'));
   }
 });
+test('both packages bundle local download workers and dependency notices for all supported sites',async()=>{
+  for(const browser of ['chrome','firefox']){
+    const root=path.resolve('dist',browser),manifest=JSON.parse(await readFile(path.join(root,'manifest.json'),'utf8'));
+    for(const file of ['download/page.js','download/content.js','download/gif-worker.js','licenses/gifenc-MIT.txt','licenses/mediabunny-MPL-2.0.txt','licenses/media-notices.txt'])await access(path.join(root,file));
+    const page=manifest.content_scripts.find(s=>s.js.includes('download/page.js')),content=manifest.content_scripts.find(s=>s.js.includes('download/content.js'));assert.equal(page.world,'MAIN');assert.equal(page.run_at,'document_start');assert.deepEqual(page.matches,content.matches);
+    for(const site of ['x.com','www.instagram.com','www.reddit.com','www.tiktok.com'])assert.ok(page.matches.includes(`https://${site}/*`));
+    for(const file of ['download/page.js','download/content.js','download/gif-worker.js'])new vm.Script(await readFile(path.join(root,file),'utf8'));
+    assert.ok(!manifest.content_security_policy.extension_pages.includes('unsafe-eval'));assert.ok(!manifest.content_security_policy.extension_pages.includes('http'));
+  }
+});
