@@ -8,7 +8,7 @@ const host=createMediaHost({
   processDownload:(spec,options)=>prepareMedia(spec,{...options,workerUrl:api.runtime.getURL('download/gif-worker.js')}),
   resolveDownload:resolveMediaVariants,
   onProgress:(owner,progress)=>request(api,'media.progress','background',{owner,progress}).catch(()=>{}),
-  writeImage:async photo=>{try{await navigator.clipboard.write([new ClipboardItem({'image/png':await pngPhoto(photo)})]);}catch(error){if(error.message==='IMAGE_TOO_LARGE')throw error;throw new Error('CLIPBOARD_DENIED');}},
+  writeImage:async photo=>{try{await navigator.clipboard.write([new ClipboardItem({'image/png':await pngPhoto(photo)})]);}catch(error){if(error.message==='IMAGE_TOO_LARGE')throw error;throw new Error('CLIPBOARD_DENIED',{cause:error});}},
   onExpire:leaseId=>request(api,'lease.expired','background',{leaseId})
 });
 api.runtime.onMessage.addListener((m,sender,reply)=>{

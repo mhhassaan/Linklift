@@ -1,4 +1,4 @@
-export const CONTROL_STYLE=`
+export const CONTROL_STYLE = `
 :host{all:initial;position:relative;display:inline-flex;flex-shrink:0;align-items:center;gap:6px;font:inherit;color:#71767b;vertical-align:middle;line-height:1.3;color-scheme:light}
 :host([data-layout=row]){display:flex;justify-content:flex-end;flex-basis:100%;grid-column:1/-1;box-sizing:border-box;width:100%;padding:6px 0;gap:8px;flex-wrap:wrap}
 :host([data-layout=floating]){position:fixed!important;z-index:1000;display:inline-flex!important;width:auto!important;max-width:64px;isolation:isolate}
@@ -39,4 +39,8 @@ form label{display:block;margin:0 0 12px}select{display:block;width:100%;border:
 .feedback .cancel{flex-shrink:0}
 :host([data-platform=instagram]) .feedback .cancel,:host([data-platform=tiktok]) .feedback .cancel{color:#fff;background:#ffffff20;padding:0 12px}
 @media(prefers-reduced-motion:reduce){button{transition:none}}
+.split [data-action=options],:host([data-platform=instagram]) .split [data-action=options]{min-width:24px;width:24px;min-height:28px}
+:host([data-layout=native-rail]) .split [data-action=options],:host([data-platform=tiktok]) .split [data-action=options]{min-height:24px}
+[data-action=options]{anchor-name:--ll-options}
+@supports (position-anchor:--ll-options) and (position-area:bottom span-left) and (position-try-fallbacks:flip-block){form[data-anchored=true]{position-anchor:--ll-options;position-area:bottom span-left;position-try-fallbacks:flip-block,flip-inline,flip-block flip-inline;margin:6px;inset:auto}}
 `;

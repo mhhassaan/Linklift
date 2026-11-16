@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile,access,readdir} from 'node:fs/promises';
+import {readFile,access} from 'node:fs/promises';
 import path from 'node:path';
 import vm from 'node:vm';
 

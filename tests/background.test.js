@@ -12,7 +12,7 @@ test('media host holds at most two leases and releases encoded bytes after expir
   assert.equal(typeof hosts.createMediaHost,'function','Media host must exist');
   const clock=fakeClock(),deps=mediaDependencies(clock);const expired=[];
   const host=hosts.createMediaHost({...deps,onExpire:async id=>expired.push(id)});
-  const first=await host.prepare(owner(),snapshot());const second=await host.prepare(owner(),snapshot());
+  const first=await host.prepare(owner(),snapshot());await host.prepare(owner(),snapshot());
   await assert.rejects(()=>host.prepare(owner(),snapshot()),/BUSY/);
   assert.equal(deps.blobs.size,2);await host.bind(first.leaseId,8);
   assert.equal(host.inventory().leases.find(l=>l.leaseId===first.leaseId).downloadId,8);
@@ -101,7 +101,7 @@ test('Chrome validation configuration survives until its next photo action',asyn
   globalThis.__VALIDATION__=true;
   const mod=await import('../src/background/chrome.js').catch(()=>({}));
   assert.equal(typeof mod.createChromeMedia,'function','Chrome adapter factory must exist');
-  let alive=false,fault=null,sequence=0;
+  let alive=false,fault=null;
   const api={offscreen:{async createDocument(){alive=true;fault=null;},async closeDocument(){alive=false;fault=null;}},runtime:{getURL:path=>`chrome-extension://test/${path}`,async getContexts(){return alive?[{}]:[];},async sendMessage(m){let result={};if(m.command==='validation.configure')fault=m.payload.fault;if(m.command==='lease.inventory')result={helperGeneration:'test',leases:[]};if(m.command==='media.copy')result={rendition:fault==='preferred-fetch-failed'?'displayed-fallback':'original-candidate'};return {v:1,requestId:m.requestId,ok:true,result};}}};
   const remote=mod.createChromeMedia(api);await remote.configure({tabId:1,fault:'preferred-fetch-failed',barrier:'none'});const result=await remote.copy(owner(),snapshot());
   assert.equal(result.rendition,'displayed-fallback');assert.equal(alive,false);delete globalThis.__VALIDATION__;

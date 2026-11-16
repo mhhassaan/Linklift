@@ -14,7 +14,7 @@ function mediaType(bytes){
 export async function fetchMedia(platform,url,{fetch:fetcher=globalThis.fetch,signal,progress=()=>{},text=false,budget={used:0}}={}){
   signal?.throwIfAborted();url=safeMediaUrl(platform,url);
   let response;try{response=await fetcher(url,{credentials:'omit',redirect:'error',signal:AbortSignal.any([...(signal?[signal]:[]),AbortSignal.timeout(text?15000:120000)])});}
-  catch(error){if(signal?.aborted)throw new Error('CANCELLED');throw new Error(error?.name==='TimeoutError'?'FETCH_TIMEOUT':'NETWORK_ERROR');}
+  catch(error){if(signal?.aborted)throw new Error('CANCELLED',{cause:error});throw new Error(error?.name==='TimeoutError'?'FETCH_TIMEOUT':'NETWORK_ERROR',{cause:error});}
   if(!response.ok||response.redirected){await response.body?.cancel().catch(()=>{});throw new Error(response.status===403?'SERVER_FORBIDDEN':response.status===401?'SERVER_UNAUTHORIZED':'FETCH_FAILED');}
   const max=text?2*1024*1024:MAX_MEDIA_BYTES;
   const length=Number(response.headers.get('content-length'))||0;if(length>max||budget.used+length>MAX_MEDIA_BYTES){await response.body?.cancel().catch(()=>{});throw new Error('MEDIA_TOO_LARGE');}
