@@ -57,6 +57,43 @@ test('only Copy link arms rewriting; native return values, text and unrelated UR
   ctx.controller.dispose();ctx.dom.window.close();
 });
 
+test('Instagram Copy link recognizes its SVG title plus visible label without concatenating both',async()=>{
+  const ctx=setup(),link='https://www.instagram.com/reel/ABC/?utm_source=ig_web_button_share_sheet';
+  try{
+    const copy=ctx.dom.window.document.getElementById('copy');copy.outerHTML='<a id="copy" role="link" href="#"><svg aria-label="Copy link"><title>Copy link</title></svg><span>Copy link</span></a>';
+    ctx.click('share');assert.equal(ctx.copied.length,0);ctx.dom.window.document.querySelector('#copy span').click();
+    assert.equal(await ctx.clipboard.writeText(link),'native-result');assert.equal(ctx.copied.at(-1),'https://custom.example/reel/ABC/');
+  }finally{ctx.controller.dispose();ctx.dom.window.close();}
+});
+
+test('Instagram Share then plain Copy in its dialog rewrites once, without copying on Share',async()=>{
+  const ctx=setup(),link='https://www.instagram.com/p/ABC/?img_index=2&igsh=tracking';
+  try{
+    const doc=ctx.dom.window.document;doc.getElementById('share').innerHTML='<svg aria-label="Share"><title>Share</title></svg>';
+    const dialog=doc.createElement('div');dialog.setAttribute('role','dialog');dialog.innerHTML='<h1>Share to...</h1><div role="button" id="plain-copy"><svg><title>Copy</title></svg><span>Copy</span></div>';doc.body.append(dialog);
+    ctx.click('share');assert.equal(ctx.copied.length,0);await ctx.clipboard.writeText(link);assert.equal(ctx.copied.at(-1),link);
+    doc.querySelector('#plain-copy span').click();await ctx.clipboard.writeText(link);assert.equal(ctx.copied.at(-1),'https://custom.example/p/ABC/?img_index=2');
+    await ctx.clipboard.writeText(link);assert.equal(ctx.copied.at(-1),link);
+  }finally{ctx.controller.dispose();ctx.dom.window.close();}
+});
+
+test('plain Copy does not rewrite outside a current Instagram Share dialog or when rewriting is disabled',async()=>{
+  for(const mode of ['no-share','outside','expired','escaped','navigation','other-action','disabled']){
+    const ctx=setup(),link='https://instagram.com/p/ABC/?igsh=tracking';
+    try{
+      const doc=ctx.dom.window.document,dialog=doc.createElement('div');dialog.setAttribute('role','dialog');dialog.innerHTML='<h1>Share to...</h1><button id="plain-copy">Copy</button>';doc.body.append(dialog);
+      if(mode!=='no-share')ctx.click('share');
+      if(mode==='outside')doc.body.append(doc.getElementById('plain-copy'));
+      if(mode==='expired')for(let i=0;i<31;i++)ctx.advance();
+      if(mode==='escaped')ctx.dom.window.dispatchEvent(new ctx.dom.window.KeyboardEvent('keydown',{key:'Escape'}));
+      if(mode==='navigation')ctx.dom.window.history.pushState({},'', '/reel/OTHER/');
+      if(mode==='other-action')ctx.click('other');
+      if(mode==='disabled')ctx.controller.configure({enabled:false,activeDomain:'custom.example'});
+      ctx.click('plain-copy');await ctx.clipboard.writeText(link);assert.equal(ctx.copied.at(-1),link,mode);
+    }finally{ctx.controller.dispose();ctx.dom.window.close();}
+  }
+});
+
 test('shadow DOM Copy link actions work and cross-platform URL writes stay untouched',async()=>{
   assert.equal(typeof adapter.installSocialClipboard,'function');
   const ctx=setup('https://www.reddit.com/r/cats/');

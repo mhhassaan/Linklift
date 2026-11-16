@@ -41,7 +41,15 @@ test('cancelling the page session fetch aborts its request and creates no retain
   try{s.send(s.payload);s.send({...s.payload,type:'tiktok-download-release'});await new Promise(r=>setTimeout(r,0));assert.equal(signal.aborted,true);assert.equal(s.out[0].error,'CANCELLED');assert.equal(s.blobs.size,0);}finally{s.close();}
 });
 test('TikTok download flows through page session, content bridge and background, then releases its page Blob',async()=>{
-  const url='https://v16-webapp-prime.tiktok.com/video/tos/clip/?mime_type=video_mp4',record={id:'123',video:{width:1080,height:1920,playAddr:url}},dom=new JSDOM('<article><video src="blob:https://www.tiktok.com/player"></video><button data-e2e="share-icon">Share</button></article><script type="application/json">'+JSON.stringify(record)+'</script>',{url:'https://www.tiktok.com/@a/video/123'}),window=dom.window,ctx=browserContext(),blobs=new Map();let sessionFetches=0;
+  const video='<div id="xgwrapper-0-123"><video src="blob:https://www.tiktok.com/player"></video></div>',rail='<section style="display:flex;flex-direction:column"><button data-e2e="like-icon">Like</button><button data-e2e="share-icon">Share</button></section>';
+  for(const html of [
+    '<article>'+video+rail+'</article>',
+    '<main><article data-e2e="recommend-list-item-container">'+video+'</article><div data-e2e="anchoring-engagement-vertical">'+rail+'</div></main>',
+    '<div data-e2e="user-post-item"><a href="/@a/video/123">'+video+'</a></div>',
+    '<div role="dialog"><div data-e2e="browse-video"><div id="xgwrapper-0-456"><video src="blob:https://www.tiktok.com/next"></video></div></div><div data-e2e="browse-video">'+video+'</div><div data-e2e="browse-share-group" style="display:flex"><button aria-label="Share"></button></div></div>'
+  ]){
+  const url='https://v16-webapp-prime.tiktok.com/video/tos/clip/?mime_type=video_mp4',record={id:'123',video:{width:1080,height:1920,playAddr:url}},dom=new JSDOM(html+'<script type="application/json">'+JSON.stringify(record)+'</script>',{url:'https://www.tiktok.com/@a/video/123'}),window=dom.window,ctx=browserContext(),blobs=new Map();let sessionFetches=0;
+  const card=window.document.querySelector('article');if(card)card.getBoundingClientRect=()=>({top:0,left:0,right:400,bottom:700,width:400,height:700});
   window.postMessage=data=>queueMicrotask(()=>window.dispatchEvent(new window.MessageEvent('message',{source:window,origin:window.location.origin,data})));
   window.fetch=async(source,options)=>{assert.equal(source,url);assert.equal(options.credentials,'include');sessionFetches++;return new Response(tinyMp4());};
   window.URL.createObjectURL=blob=>{const url='blob:https://www.tiktok.com/'+uuid();blobs.set(url,blob);return url;};window.URL.revokeObjectURL=url=>blobs.delete(url);
@@ -56,6 +64,7 @@ test('TikTok download flows through page session, content bridge and background,
     assert.equal(ctx.downloads.size,1);assert.equal(sessionFetches,1);assert.equal(blobs.size,1);assert.match(ctx.downloads.get(1).url,/^blob:https:\/\/www.tiktok.com\//);
     ctx.downloads.get(1).state='complete';ctx.api.downloads.onChanged.emit({id:1,state:{current:'complete'}});for(let i=0;i<30&&blobs.size;i++)await new Promise(r=>setTimeout(r,0));assert.equal(blobs.size,0);assert.equal(control.shadowRoot.querySelector('.status').textContent,'Downloaded');
   }finally{app.dispose();page.dispose();await bg.dispose();host.dispose();window.close();}
+  }
 });
 
 test('media URLs are HTTPS, credential-free and restricted to the owning platform CDN',()=>{

@@ -22,9 +22,9 @@
 | Platform | Included embed services | Media tools |
 | :--- | :--- | :--- |
 | **X / Twitter** | `fixupx.com` · `fxtwitter.com` | Post downloads; right-click to copy or download photos |
-| **Instagram** | `zzinstagram.com` · `ddinstagram.com` | Open posts, reels and carousels |
+| **Instagram** | `zzinstagram.com` · `ddinstagram.com` | Feed posts, reels, carousels and profile/Explore cards |
 | **Reddit** | `vxreddit.com` · `rxddit.com` | Videos with audio; current-image or all-image gallery downloads |
-| **TikTok** | `tfxktok.com` · `tnktok.com` | Videos and photo posts; video downloads use the open page's session |
+| **TikTok** | `tfxktok.com` · `tnktok.com` | Videos, photo posts and video grid cards; uses the open page's session |
 
 ## Install
 
@@ -50,6 +50,8 @@ No analytics. Settings stay local, and conversion runs in your browser. **[Priva
 
 - Availability depends on the website and selected embed service. Private, expired, encrypted, live and unsupported streams may be unavailable.
 - If TikTok says media is not available yet, play the video or reopen the post and retry.
+- TikTok video cards resolve the video itself, rather than saving its cover image. Cards without a post link need their preview to load first.
+- Instagram carousels download the displayed item. If the active slide is unclear, choose the media from the download options.
 - Local processing and TikTok transfers support files up to **256 MiB**. GIF conversion supports up to **60 seconds**; use a smaller preset if needed.
 - Incomplete downloads expire after **five minutes**. Keep the originating tab open until the download finishes.
 

@@ -1,5 +1,6 @@
-import {instagramRoots,instagramCode,redditMedia,isVideoNode,actionMount,redditEmbeddedItem,isCommentMedia,currentGalleryIndex} from './dom.js';
+import {instagramRoots,instagramCode,instagramPostId,instagramSlideIndex,redditMedia,isVideoNode,actionMount,redditEmbeddedItem,isCommentMedia,currentGalleryIndex} from './dom.js';
 import {CONTROL_STYLE} from './control-style.js';
+import {tiktokRoots,tiktokPostId,tiktokMediaScope,tiktokShare,tiktokLink} from './tiktok-dom.js';
 import {getApi} from '../shared/api.js';
 import {request,validEnvelope,success,failure,uuid} from '../shared/protocol.js';
 import {platformFor,normalizeItem,safeMediaUrl,safePageVideoUrl,MAX_MEDIA_BYTES,DOWNLOAD_KEY,downloadEnabled,variantLabel,MEDIA_CHANNEL} from './model.js';
@@ -8,6 +9,7 @@ const ROOTS={x:'article[data-testid="tweet"],[role="dialog"]',instagram:'article
 const ERRORS={NETWORK_ERROR:'The browser could not read this media source. Reload the post or try another quality.',FETCH_TIMEOUT:'The media request timed out. Please retry.',DOWNLOAD_FAILED:'The browser could not save the file. Check its Downloads panel for details.',SERVER_FORBIDDEN:'The media link expired or the server denied access. Reload the post and retry.',SERVER_UNAUTHORIZED:'This media requires access that is not currently available.',GIF_LIMIT:'This GIF is too large to convert at this quality. Try a smaller GIF preset.',GIF_DECODE_FAILED:'This animation could not be decoded in your browser.',AUDIO_UNAVAILABLE:'The audio track could not be joined. Please retry.',UNSUPPORTED_STREAM:'This stream format is not supported yet.',UNSUPPORTED_MEDIA:'No supported media file was found.',MEDIA_UNAVAILABLE:'Media is not available yet. Play the video or reopen this post, then retry.',FETCH_FAILED:'The media could not be fetched. Reload the post and retry.',MEDIA_TOO_LARGE:'This file exceeds the 256 MiB download limit.',BUSY:'Another media file is processing. Wait or cancel it first.',CANCELLED:'Download cancelled.',OWNER_GONE:'Download cancelled because the post was closed.',DOWNLOADS_DISABLED:'Downloads are turned off for this website.'};
 const STYLE=CONTROL_STYLE;
 function pathKey(url){try{return new URL(url).pathname;}catch{return '';}}
+function entriesChanged(before,after){return before.length!==after.length||after.some((entry,index)=>entry.node!==before[index]?.node)||JSON.stringify(before.map(e=>e.item))!==JSON.stringify(after.map(e=>e.item));}
 function pageMode(window,root){
   for(let node=root;node;node=node.parentElement){const parts=window.getComputedStyle(node).backgroundColor.match(/[\d.]+/g);if(parts&&parts.length>=3&&(parts.length<4||Number(parts[3])>0))return .2126*Number(parts[0])+.7152*Number(parts[1])+.0722*Number(parts[2])<128?'dark':'light';}
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches?'dark':'light';
@@ -17,8 +19,8 @@ export function installDownloads({window,api,isTrusted=event=>event.isTrusted}){
   if(!platform)return {ready:Promise.resolve(),scan(){},receive(){},dispose(){}};
   function postId(root){
     if(platform==='reddit')return (root.getAttribute('post-id')||root.getAttribute('data-fullname')||'').replace(/^t3_/,'')||root.querySelector('a[href*="/comments/"]')?.href.match(/\/comments\/([a-z0-9]+)/)?.[1];
-    if(platform==='tiktok'){const player=root.querySelector('[id^="xgwrapper-"]');const id=player?.id.match(/-(\d{10,30})$/)?.[1];if(id)return id;}
-    if(platform==='instagram'){const links=[...root.querySelectorAll('a[href]')].filter(a=>instagramCode(a.href));return links.map(a=>instagramCode(a.href))[0]||instagramCode(window.location.href);}
+    if(platform==='tiktok')return tiktokPostId(root,window.location);
+    if(platform==='instagram')return instagramPostId(root,window.location);
     const selector=platform==='x'?'a[href*="/status/"]':platform==='instagram'?'a[href*="/p/"],a[href*="/reel/"]':'a[href*="/video/"],a[href*="/photo/"]';
     const links=[...root.querySelectorAll(selector)].filter(link=>!link.closest('[data-testid="quoteTweet"]'));
     const link=platform==='x'?links.find(link=>link.querySelector('time'))||links[0]:links[0],url=link?.href||window.location.href;
@@ -33,10 +35,11 @@ export function installDownloads({window,api,isTrusted=event=>event.isTrusted}){
     }schedule();
   }
   function rootsIn(scope){
-    if(!observed.has(scope)){observed.add(scope);observer.observe(scope,{subtree:true,childList:true,attributes:true,attributeFilter:['src','srcset','href','post-id','data-fullname']});}
-    return platform==='instagram'?instagramRoots(document,window.location):[...scope.querySelectorAll(ROOTS[platform])];
+    if(!observed.has(scope)){observed.add(scope);observer.observe(scope,{subtree:true,childList:true,attributes:true,attributeFilter:['src','srcset','href','id','aria-hidden','post-id','data-fullname']});}
+    return platform==='instagram'?instagramRoots(document,window.location):platform==='tiktok'?tiktokRoots(document):[...scope.querySelectorAll(ROOTS[platform])];
   }
   function mediaFor(root){
+    if(platform==='tiktok')root=tiktokMediaScope(root,window.location);
     const nodes=platform==='reddit'?redditMedia(root,shadow=>{if(!observed.has(shadow)){observed.add(shadow);observer.observe(shadow,{subtree:true,childList:true,attributes:true,attributeFilter:['src','poster','packaged-media-json']});}}):[...root.querySelectorAll(platform==='x'?'[data-testid="tweetPhoto"] img,[data-testid="videoPlayer"] video,video': 'img,video')];
     let clean=nodes.filter(node=>!(platform==='instagram'&&isCommentMedia(node,root))&&!node.closest('header,[data-testid="UserAvatar-Container"],.author,[data-testid="quoteTweet"],[hidden],[aria-hidden="true"]')&&!/profile picture/i.test(node.alt||'')&&!(node.tagName==='IMG'&&(node.width>0&&node.width<100||node.height>0&&node.height<70)));
     if(platform==='instagram'&&clean.length&&root.querySelector('[aria-label="Save"]')){
@@ -44,7 +47,7 @@ export function installDownloads({window,api,isTrusted=event=>event.isTrusted}){
       if(branch!==clean[0])clean=clean.filter(node=>branch.contains(node));
     }
     if(platform==='instagram'||platform==='tiktok'){
-      const videos=clean.filter(isVideoNode);if(videos.length)return videos;
+      const videos=clean.filter(isVideoNode);if(videos.length)return platform==='instagram'?clean.filter(node=>isVideoNode(node)||node.closest('li')&&!node.closest('li').querySelector('video')):videos;
       if(platform==='tiktok'){const player=root.querySelector('[data-e2e="feed-video"]');if(player&&!/\/photo\//.test(window.location.pathname))return [player];}
     }
     return clean;
@@ -52,8 +55,9 @@ export function installDownloads({window,api,isTrusted=event=>event.isTrusted}){
   function source(node){return node.currentSrc||node.src||node.querySelector('source')?.src;}
   function itemFor(root,node,id,nodes){
     const items=cache.get(id),url=source(node),key=pathKey(url);
+    if(platform==='instagram'&&root.matches('a[href]')&&instagramCode(root.href)&&!items)return {id:'pending-post',kind:'pending',variants:[]};
     const videoPoster=node.tagName==='IMG'&&(['instagram','tiktok'].includes(platform))&&(
-      items?.some(i=>i.kind==='video')||platform==='instagram'&&(/\/(?:reel|reels)\//.test(window.location.pathname)||/^Video by\b|^Clip$/i.test(node.alt||''))||platform==='tiktok'&&(/\/video\//.test(window.location.pathname)||root.querySelector('[data-e2e="feed-video"]')));
+      items?.some(i=>i.kind==='video')&&!items.some(i=>i.kind==='image')||platform==='instagram'&&(/\/(?:reel|reels)\//.test(window.location.pathname)||/^Video by\b|^Clip$/i.test(node.alt||''))||platform==='tiktok'&&(/\/video\//.test(window.location.pathname)||tiktokLink(root)?.pathname.includes('/video/')||root.querySelector('[data-e2e="feed-video"]')));
     if(videoPoster){const videos=items?.filter(i=>i.kind==='video');return videos?.length===1?videos[0]:{id:'pending-video',kind:'pending',variants:[]};}
     if(items){
       const match=items.find(i=>i.variants.some(v=>pathKey(v.url)===key));if(match)return match;
@@ -79,14 +83,25 @@ export function installDownloads({window,api,isTrusted=event=>event.isTrusted}){
       return normalizeItem(platform,{id:'video-'+nodes.indexOf(node),kind,variants:[{url:direct,width:node.videoWidth,height:node.videoHeight}]});
     }catch{return ['instagram','tiktok'].includes(platform)&&isVideoNode(node)?{id:'pending-video',kind:'pending',variants:[]}:null;}
   }
-  function remove(node){const c=controls.get(node);if(!c)return;window.clearTimeout(c.statusTimer);c.feedbackObserver?.disconnect();closeControl(c);c.host.remove();controls.delete(node);}
+  function remove(node){
+    const c=controls.get(node);if(!c)return;
+    if(c.cancelResolution){c.cancelled=true;c.cancelResolution();if(active===c)active=null;}
+    if(c.previewPosition&&c.root.style.position==='relative'){
+      if(c.previewPosition.value)c.root.style.setProperty('position',c.previewPosition.value,c.previewPosition.priority);else c.root.style.removeProperty('position');
+    }
+    window.clearTimeout(c.statusTimer);c.feedbackObserver?.disconnect();closeControl(c);c.host.remove();controls.delete(node);
+  }
   function entriesFor(root,id){
     const nodes=mediaFor(root),unique=new Map();
     for(const node of nodes){const item=itemFor(root,node,id,nodes);if(!item)continue;const key=item.kind+':'+item.id,previous=unique.get(key);
       if(previous){previous.nodes.push(node);let variants=[...previous.item.variants,...item.variants];if(platform==='reddit'&&variants.some(v=>!new URL(v.url).searchParams.has('blur')))variants=variants.filter(v=>!new URL(v.url).searchParams.has('blur'));try{previous.item=normalizeItem(platform,{...item,variants});}catch{}if(source(node)?.startsWith('https://i.redd.it/'))previous.node=node;}
       else unique.set(key,{node,nodes:[node],item});
     }
-    const cached=cache.get(id);if(cached?.length&&nodes.length)return cached.map(item=>{const match=[...unique.values()].find(e=>e.item.id===item.id||e.item.variants.some(v=>item.variants.some(other=>pathKey(v.url)===pathKey(other.url))));return {item,node:match?.node||nodes[0],nodes:match?.nodes||[]};});
+    const cached=cache.get(id);if(cached?.length&&nodes.length)return cached.map((item,index)=>{
+      const match=[...unique.values()].find(e=>e.item.id===item.id||e.item.variants.some(v=>item.variants.some(other=>pathKey(v.url)===pathKey(other.url))));
+      const matched=match?.nodes||(platform==='instagram'?nodes.filter(node=>instagramSlideIndex(node,cached.length)===index):[]);
+      return {item,node:match?.node||matched[0]||nodes[0],nodes:matched};
+    });
     return [...unique.values()];
   }
   function add(node,root,id,item,entries){
@@ -135,11 +150,16 @@ export function installDownloads({window,api,isTrusted=event=>event.isTrusted}){
         if(['reddit','instagram','tiktok'].includes(platform)&&control.item.kind==='pending'&&!cache.has(id)){
           const permalink=root.getAttribute('permalink')||root.querySelector('a[href*="/comments/"]')?.pathname||window.location.pathname;
           const profile=root.querySelector('a[data-e2e="video-author-avatar"]')?.pathname;
-          const link=root.querySelector('a[href*="/video/"],a[href*="/photo/"]')?.pathname||(profile&&/^\/@[\w.]+$/.test(profile)?profile+'/video/'+id:window.location.pathname);
-          await new Promise((resolve,reject)=>{const timeout=window.setTimeout(()=>{resolvers.delete(id);reject(new Error('MEDIA_UNAVAILABLE'));},12000);resolvers.set(id,()=>{window.clearTimeout(timeout);resolvers.delete(id);resolve();});window.postMessage({channel:MEDIA_CHANNEL,type:platform+'-post',postId:id,path:platform==='tiktok'?link:permalink.endsWith('/')?permalink:permalink+'/'},window.location.origin);});
+          const link=tiktokLink(root,id)?.pathname||(profile&&/^\/@[\w.]+$/.test(profile)?profile+'/video/'+id:window.location.pathname);
+          await new Promise((resolve,reject)=>{
+            const cleanup=()=>{window.clearTimeout(timeout);if(resolvers.get(id)===complete)resolvers.delete(id);control.cancelResolution=null;};
+            const complete=()=>{cleanup();resolve();},timeout=window.setTimeout(()=>{cleanup();reject(new Error('MEDIA_UNAVAILABLE'));},12000);
+            control.cancelResolution=complete;resolvers.set(id,complete);
+            window.postMessage({channel:MEDIA_CHANNEL,type:platform+'-post',postId:id,path:platform==='tiktok'?link:permalink.endsWith('/')?permalink:permalink+'/'},window.location.origin);
+          });
         }
-        if(control.cancelled||disposed||!node.isConnected||postId(root)!==id)throw new Error('CANCELLED');
-        const next=entriesFor(root,id);if(batch?.control!==control&&next.length&&JSON.stringify(next.map(e=>e.item))!==JSON.stringify(control.entries.map(e=>e.item)))setEntries(next);
+        if(control.cancelled||disposed||!(['instagram','tiktok'].includes(platform)?root:node).isConnected||postId(root)!==id)throw new Error('CANCELLED');
+        const next=entriesFor(root,id);if(batch?.control!==control&&next.length&&entriesChanged(control.entries,next))setEntries(next);
         let latest=control.item;
         if(qualities&&latest.variants.some(v=>v.manifestUrl)){
           latest=normalizeItem(platform,await request(api,'download.resolve','background',{spec:{platform,item:latest}},25000));
@@ -161,12 +181,20 @@ export function installDownloads({window,api,isTrusted=event=>event.isTrusted}){
       active=control;control.cancelled=false;control.state='preparing';control.operationId=uuid();jobs.set(control.operationId,control);window.clearTimeout(control.statusTimer);download.disabled=options.disabled=save.disabled=true;cancel.hidden=false;status.dataset.error='false';status.textContent=stageText(control,'Preparing download…');closeControl(control);
       try{
         await resolveItem(choose);
+        if(platform==='instagram'&&!choose&&control.entries.length>1){
+          const current=instagramCode(window.location.href)===id?new URL(window.location.href).searchParams.get('img_index'):null,index=/^[1-9]\d{0,3}$/.test(current||'')?Number(current)-1:-1;
+          const selected=index>=0&&index<control.entries.length?index:root.matches('a[href]')?0:currentGalleryIndex(root,control.entries,window,-1);
+          if(selected<0){
+            control.state='idle';jobs.delete(control.operationId);closeMenus(host);galleryPrompt.hidden=true;advanced.hidden=false;form.hidden=false;options.setAttribute('aria-expanded','true');try{form.showPopover?.();}catch{}positionMenu(control);status.textContent='Choose the media to download.';return {ok:false,code:'MEDIA_SELECTION_REQUIRED'};
+          }
+          selectEntry(selected);
+        }
         if(control.cancelled||disposed||!node.isConnected||postId(root)!==id)throw new Error('CANCELLED');
         const latest=control.item,index=choose?Number(quality.value):0,v=latest.variants[index];if(!v)throw new Error('MEDIA_UNAVAILABLE');
         await request(api,'download.start','background',{documentToken:token,operationId:control.operationId,spec:{platform,postId:id,item:{...latest,variants:[v]},quality:0,format:choose?format.value:'original',gifPreset:choose?preset.value:'best',saveAs:choose&&check.checked}},600000);
         if(control.state==='preparing'){control.state='downloading';status.textContent=stageText(control,'Downloading…');}
       }catch(error){finish(control,false,error.message);}
-      finally{active=null;if(control.state!=='downloading'){download.disabled=options.disabled=save.disabled=false;cancel.hidden=true;}}
+      finally{if(active===control)active=null;if(control.state!=='downloading'){download.disabled=options.disabled=save.disabled=false;cancel.hidden=true;}}
       return completion?await completion:{ok:control.state!=='failed'};
     }
     function showGallery(event){
@@ -206,13 +234,16 @@ export function installDownloads({window,api,isTrusted=event=>event.isTrusted}){
     for(const {root,id,entries} of candidates.values()){
       live.add(root);let c=controls.get(root);if(c&&c.id!==id){remove(root);c=null;}
       if(!c){add(entries[0].node,root,id,entries[0].item,entries);c=controls.get(root);}
-      else if(active!==c&&batch?.control!==c&&JSON.stringify(c.entries.map(e=>e.item))!==JSON.stringify(entries.map(e=>e.item)))c.setEntries(entries);
+      else if(active!==c&&batch?.control!==c&&entriesChanged(c.entries,entries))c.setEntries(entries);
       if(c){mountControl(c);positionControl(c);}
     }
     for(const root of [...controls.keys()])if(!root.isConnected||!live.has(root))remove(root);
   }
   function mountControl(c){
     const mount=actionMount(c.root,platform);if(c.host.parentNode!==mount.parent||c.host.dataset.layout!==mount.layout||mount.after&&mount.after.nextElementSibling!==c.host){c.host.dataset.layout=mount.layout;c.parent=mount.parent;if(mount.after)mount.after.after(c.host);else mount.parent.append(c.host);}
+    if(mount.layout==='preview'&&!c.previewPosition&&['','static'].includes(window.getComputedStyle(c.root).position)){
+      c.previewPosition={value:c.root.style.getPropertyValue('position'),priority:c.root.style.getPropertyPriority('position')};c.root.style.setProperty('position','relative');
+    }
   }
   function schedule(){if(!timer&&!disposed)timer=window.setTimeout(()=>{timer=null;scan();},150);}
   const observer=new window.MutationObserver(schedule);
@@ -222,8 +253,9 @@ export function installDownloads({window,api,isTrusted=event=>event.isTrusted}){
   function escape(event){if(event.key==='Escape'){for(const c of controls.values())if(!c.form.hidden){closeControl(c);c.options.focus();}}}
   function positionMenu(c){if(c.form.hidden)return;const rect=c.options.getBoundingClientRect(),height=c.form.getBoundingClientRect().height;c.form.style.left=Math.max(12,Math.min(window.innerWidth-262,rect.right-250))+'px';c.form.style.top=(window.innerHeight-rect.bottom>height+12?rect.bottom+6:Math.max(12,rect.top-height-6))+'px';}
   function positionControl(c){
+    if(c.host.dataset.layout==='inactive'){c.host.hidden=true;return;}
     if(c.host.dataset.layout!=='floating'){c.host.style.left='';c.host.style.top='';c.host.hidden=false;return;}
-    const marker=platform==='tiktok'?c.root.querySelector('[data-e2e="share-icon"]'):c.root.querySelector('[aria-label="Share"],[aria-label="Send"]')||c.root.querySelector('[aria-label="Save"]');
+    const marker=platform==='tiktok'?tiktokShare(c.root):c.root.querySelector('[aria-label="Share"],[aria-label="Send"]')||c.root.querySelector('[aria-label="Save"]');
     const anchor=marker?.closest('button,[role="button"]')||marker||c.node,rect=anchor.getBoundingClientRect();
     c.host.hidden=!rect.width||!rect.height||rect.bottom<0||rect.top>window.innerHeight||rect.right<0||rect.left>window.innerWidth;
     const left=marker?rect.right+4:rect.right-66;
@@ -235,7 +267,7 @@ export function installDownloads({window,api,isTrusted=event=>event.isTrusted}){
     const terminal=c.onTerminal;c.onTerminal=null;terminal?.({ok,code});
   }
   function stageText(c,text){return batch?.control===c?`Image ${batch.index} of ${batch.total} · ${text}`:text;}
-  function moved(event){if(![...controls.values()].some(c=>event.composedPath?.().includes(c.host)))closeMenus();for(const c of controls.values())positionControl(c);}
+  function moved(event){if(![...controls.values()].some(c=>event.composedPath?.().includes(c.host)))closeMenus();for(const c of controls.values())positionControl(c);if(platform==='tiktok')schedule();}
   function releasePage(operationId){window.postMessage({channel:MEDIA_CHANNEL,type:'tiktok-download-release',operationId},window.location.origin);const pending=pageRequests.get(operationId);if(pending){pageRequests.delete(operationId);window.clearTimeout(pending.timer);pending.reject(new Error('CANCELLED'));}}
   function preparePage(payload){
     if(platform!=='tiktok'||!jobs.has(payload.operationId))return Promise.reject(new Error('INVALID_MESSAGE'));

@@ -7,7 +7,7 @@ export const SOCIAL_CHANNEL='tweetx.social.v1';
 // It has no extension API access and never reads clipboard contents.
 export function installSocialClipboard({window,isTrusted=event=>event.isTrusted,now=()=>Date.now()}){
   const platform=socialPlatform(window.location.href),document=window.document;
-  let domain=null,armedUntil=0,post=null,disposed=false;
+  let domain=null,armedUntil=0,post=null,instagramShare=null,disposed=false;
   const clipboard=window.navigator.clipboard,original=clipboard?.writeText;
   function configure(value){
     try{domain=value?.enabled===false?null:normalizeService(value?.activeDomain);}catch{domain=null;}
@@ -26,9 +26,19 @@ export function installSocialClipboard({window,isTrusted=event=>event.isTrusted,
     armedUntil=0;
     const path=event.composedPath();
     const controls=path.filter(node=>node?.matches?.('button,a,[role="button"],[role="menuitem"],[data-e2e],[data-testid]'));
-    const label=node=>(node.getAttribute('aria-label')||node.getAttribute('title')||node.textContent||'').replace(/[\u200b-\u200f\ufeff]/g,'').trim();
-    const copy=controls.some(node=>/^copy (?:post )?link(?: to (?:post|video|reel))?$/i.test(label(node))||/^(?:copy-link|share-copy|copy-link-button)$/.test(node.getAttribute('data-e2e')||node.getAttribute('data-testid')||''));
-    if(copy){armedUntil=now()+3000;return;}
+    const clean=text=>(text||'').replace(/[\u200b-\u200f\ufeff]/g,'').replace(/\s+/g,' ').trim();
+    const label=node=>{
+      const explicit=node.getAttribute('aria-label')||node.getAttribute('title');if(explicit)return clean(explicit);
+      // SVG <title> contributes to textContent alongside the visible caption.
+      // Instagram's native Copy link otherwise reads as "Copy linkCopy link".
+      const visible=node.cloneNode(true);visible.querySelectorAll('svg,[aria-hidden="true"],script,style').forEach(child=>child.remove());
+      return clean(visible.textContent)||clean(node.querySelector('svg[aria-label]')?.getAttribute('aria-label'));
+    };
+    const shareDialog=path.some(node=>node?.matches?.('[role="menu"]')||node?.matches?.('[role="dialog"]')&&/^(?:share|send)(?:\b|$)/i.test(clean(node.getAttribute('aria-label')||node.querySelector('h1,h2,[role="heading"]')?.textContent)));
+    const instagramCopy=platform==='instagram'&&instagramShare?.location===window.location.href&&now()-instagramShare.time<120000&&shareDialog&&controls.some(node=>/^copy$/i.test(label(node)));
+    const copy=instagramCopy||controls.some(node=>/^copy (?:post )?link(?: to (?:post|video|reel))?$/i.test(label(node))||/^(?:copy-link|share-copy|copy-link-button)$/.test(node.getAttribute('data-e2e')||node.getAttribute('data-testid')||''));
+    if(copy){armedUntil=now()+3000;instagramShare=null;return;}
+    instagramShare=platform==='instagram'&&controls.some(node=>/^share(?: (?:post|reel))?$/i.test(label(node)))?{location:window.location.href,time:now()}:null;
     post=null;
     if(platform==='reddit'&&controls.some(node=>/^share(?: post)?$/i.test(label(node))||node.getAttribute('slot')==='share-button')){
       const owner=path.find(node=>node?.matches?.('shreddit-post'));
@@ -49,7 +59,7 @@ export function installSocialClipboard({window,isTrusted=event=>event.isTrusted,
     if(event.source!==window||event.origin!==window.location.origin||event.data?.channel!==SOCIAL_CHANNEL||event.data?.type!=='settings')return;
     configure(event.data.value);
   }
-  function clear(){armedUntil=0;post=null;}
+  function clear(){armedUntil=0;post=null;instagramShare=null;}
   function keydown(event){if(event.key==='Escape')clear();}
   function hide(event){clear();if(!event.persisted)dispose();}
   function dispose(){

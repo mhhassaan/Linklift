@@ -2,7 +2,12 @@ const POST_LINK='a[href*="/p/"],a[href*="/reel/"],a[href*="/reels/"],a[href*="/t
 export const REDDIT_PLAYERS='shreddit-player,shreddit-player-2';
 export const isVideoNode=node=>node.tagName==='VIDEO'||node.matches?.(REDDIT_PLAYERS+', [data-e2e="feed-video"]');
 export function instagramCode(input){try{return new URL(input,'https://www.instagram.com').pathname.match(/^\/(?:[\w.]+\/)?(?:p|reel|reels|tv)\/([-\w]+)\/?$/)?.[1]||null;}catch{return null;}}
-const ACTIONS='[aria-label="Share"],[aria-label="Save"]';
+const ACTIONS='[aria-label="Share"],[aria-label="Send"],[aria-label="Save"]';
+export function instagramPostId(root,location){
+  if(root.matches(POST_LINK))return instagramCode(root.href);
+  const links=[...root.querySelectorAll(POST_LINK)].filter(link=>instagramCode(link.href));
+  return instagramCode((links.find(link=>link.querySelector('time'))||links[0])?.href)||instagramCode(location.href);
+}
 export function isCommentMedia(node,root){
   for(let parent=node.parentElement;parent&&parent!==root;parent=parent.parentElement){
     if(parent.matches('[data-testid*="comment" i],[data-e2e="comment-list"],shreddit-comment'))return true;
@@ -27,17 +32,25 @@ export function deepElements(root,selector,onShadow=()=>{}){
 }
 export function instagramRoots(document,location){
   const roots=new Set([...document.querySelectorAll('article,[role="article"]')].filter(root=>postMedia(root).length&&!(root.querySelector('a[href*="/c/"]')&&!root.querySelector(ACTIONS)))),current=instagramCode(location.href);
+  const fallbacks=new Set();
   // Start at native actions, not profile-grid cover images. Real post pages can
   // have more than fifteen wrapper divs between their video and action row.
   for(const action of document.querySelectorAll(ACTIONS)){
+    let fallback=null;
     for(let parent=action.parentElement,depth=0;parent&&depth<28;parent=parent.parentElement,depth++){
       if(parent.matches('main,[role="main"],body'))break;
       if(!postMedia(parent).length)continue;
       const ids=new Set([...parent.querySelectorAll(POST_LINK)].map(a=>instagramCode(a.href)).filter(Boolean));
-      if(ids.size===1||!ids.size&&current){if(!parent.closest('article,[role="article"]'))roots.add(parent);break;}
+      if(ids.size===1){if(!parent.closest('article,[role="article"]'))roots.add(parent);fallback=null;break;}
+      if(ids.size>1){fallback=null;break;}
+      fallback||=parent;
     }
+    if(fallback)fallbacks.add(fallback);
   }
-  if(current){
+  if(current&&fallbacks.size===1&&![...roots].some(root=>instagramPostId(root,location)===current)){
+    const fallback=[...fallbacks][0];if(![...roots].some(root=>root.contains(fallback)||fallback.contains(root)))roots.add(fallback);
+  }
+  if(current&&![...roots].some(root=>instagramPostId(root,location)===current)){
     const main=document.querySelector('main,[role="main"]')||document.querySelector('[role="dialog"]');
     if(main){
       const candidates=postMedia(main).filter(node=>![...roots].some(root=>root.contains(node))&&!node.closest(POST_LINK));
@@ -45,7 +58,23 @@ export function instagramRoots(document,location){
       if(node){let root=node.parentElement;for(let i=0;i<3&&root.parentElement&&root.parentElement!==main;i++){const parent=root.parentElement;if([...parent.querySelectorAll(POST_LINK)].some(a=>instagramCode(a.href)&&instagramCode(a.href)!==current))break;root=parent;}roots.add(root);}
     }
   }
+  const opened=[...roots].filter(root=>root.closest('[role="dialog"]')&&!root.closest('[hidden],[aria-hidden="true"]'));
+  if(opened.length)return opened.filter(root=>!opened.some(other=>other!==root&&root.contains(other)));
+  for(const link of document.querySelectorAll(POST_LINK)){
+    if(!instagramCode(link.href)||!postMedia(link).length||[...roots].some(root=>root.contains(link)))continue;
+    roots.add(link);
+  }
   return [...roots].filter(root=>![...roots].some(other=>other!==root&&root.contains(other)));
+}
+export function instagramSlideIndex(node,total){
+  const slide=node.closest('li,[aria-roledescription="slide"]');if(!slide)return null;
+  const position=slide.getAttribute('aria-posinset');if(/^[1-9]\d*$/.test(position||'')){const index=Number(position)-1;if(index<total)return index;}
+  const transform=slide.style.transform||node.ownerDocument.defaultView.getComputedStyle(slide).transform;
+  const offset=transform.match(/^translateX\((-?[\d.]+)px\)$/)?.[1]??transform.match(/^matrix\([^,]+,[^,]+,[^,]+,[^,]+,\s*(-?[\d.]+),[^)]+\)$/)?.[1];
+  const width=slide.getBoundingClientRect().width||node.getBoundingClientRect().width||node.width;
+  if(offset!==undefined&&width>1){const raw=Number(offset)/width,index=Math.round(raw);if(index>=0&&index<total&&Math.abs(raw-index)<.03)return index;}
+  const siblings=[...slide.parentElement.children].filter(element=>element.matches('li,[aria-roledescription="slide"]')&&element.querySelector('img,video'));
+  return siblings.length===total?siblings.indexOf(slide):null;
 }
 export function redditMedia(root,onShadow){
   const all=deepElements(root,'img,video,'+REDDIT_PLAYERS,onShadow),players=all.filter(n=>n.matches(REDDIT_PLAYERS));
@@ -55,6 +84,7 @@ export function redditMedia(root,onShadow){
     return true;
   });
 }
+import {tiktokShare,tiktokSharedRail} from './tiktok-dom.js';
 export function actionMount(root,platform){
   if(platform==='x'){
     const group=[...root.querySelectorAll('[role="group"]')].find(g=>g.querySelector('[data-testid="reply"],[data-testid="retweet"],[data-testid="like"]')&&!g.closest('[data-testid="quoteTweet"]'));
@@ -65,7 +95,11 @@ export function actionMount(root,platform){
     if(share?.parentElement)return {parent:share.parentElement,after:share,layout:'action',native:share};
   }
   if(platform==='instagram'||platform==='tiktok'){
-    const share=root.querySelector(platform==='instagram'?'[aria-label="Share"],[aria-label="Send"]':'[data-e2e="share-icon"]');
+    if(platform==='instagram'&&root.matches(POST_LINK))return {parent:root,layout:'preview'};
+    const share=platform==='tiktok'?tiktokShare(root):root.querySelector('[aria-label="Share"],[aria-label="Send"]');
+    if(platform==='tiktok'&&share?.closest('[data-e2e="browse-share-group"]'))return {parent:share.parentElement,after:share,native:share,layout:'native-row'};
+    if(platform==='tiktok'&&!share&&tiktokSharedRail(root))return {parent:root.ownerDocument.body,layout:'inactive'};
+    if(platform==='tiktok'&&!share&&root.matches('[data-e2e="user-post-item"],[data-e2e="explore-item"],[data-e2e^="explore-hero-card-"],a[href*="/video/"]'))return {parent:root,layout:'preview'};
     const action=share?.closest('button,[role="button"]')||share;
     for(let parent=action?.parentElement,depth=0;parent&&parent!==root&&depth<6;parent=parent.parentElement,depth++){
       // Only join an action-only flex group. Never insert into player/media
@@ -99,12 +133,12 @@ export function redditEmbeddedItem(node,id){
     return normalizeItem('reddit',{id,kind:gif?'gif':'video',variants});
   }catch{return null;}
 }
-export function currentGalleryIndex(root,entries,window){
+export function currentGalleryIndex(root,entries,window,fallback=0){
   const carousel=deepElements(root,'gallery-carousel,faceplate-carousel,[aria-roledescription="carousel"],[data-current-index]')[0];
   for(const name of ['current-index','selected-index','active-index','data-current-index']){
     const raw=carousel?.getAttribute(name);if(raw!==null&&raw!==undefined&&/^\d+$/.test(raw)&&Number(raw)<entries.length)return Number(raw);
   }
-  let best=0,area=0;
+  let best=fallback,area=0;
   entries.forEach((entry,index)=>{
     for(const node of entry.nodes||[entry.node]){
       if(!node?.isConnected||node.closest('[hidden],[aria-hidden="true"]'))continue;

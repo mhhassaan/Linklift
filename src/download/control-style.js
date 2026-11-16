@@ -2,6 +2,7 @@ export const CONTROL_STYLE=`
 :host{all:initial;position:relative;display:inline-flex;flex-shrink:0;align-items:center;gap:6px;font:inherit;color:#71767b;vertical-align:middle;line-height:1.3;color-scheme:light}
 :host([data-layout=row]){display:flex;justify-content:flex-end;flex-basis:100%;grid-column:1/-1;box-sizing:border-box;width:100%;padding:6px 0;gap:8px;flex-wrap:wrap}
 :host([data-layout=floating]){position:fixed!important;z-index:1000;display:inline-flex!important;width:auto!important;max-width:64px;isolation:isolate}
+:host([data-layout=preview]){position:absolute!important;inset:8px 8px auto auto;z-index:2;display:inline-flex;width:auto;max-width:64px;isolation:isolate}
 *{box-sizing:border-box}button,select,input{font:inherit}button{display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;color:inherit;border-radius:999px;cursor:pointer;min-width:32px;height:32px;padding:0 8px;font-size:12px;font-weight:500;transition:background .12s,color .12s}
 button:hover{background:#1d9bf017;color:#1d9bf0}button:disabled{opacity:.55;cursor:wait}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #1d9bf0;outline-offset:2px}
 .split{display:inline-flex;align-items:center;gap:0;border-radius:999px}.split svg{display:block;width:18px;height:18px;stroke-width:1.8}.split .chevron{width:14px;height:14px}.split [data-action=options]{min-width:22px;padding:0 3px;height:28px}.download-label{display:none;margin-left:5px}:host([data-layout=row]) .download-label{display:inline}:host([data-layout=row]) .split{box-shadow:inset 0 0 0 1px #71767b33;padding:1px 3px}
@@ -28,6 +29,9 @@ form label{display:block;margin:0 0 12px}select{display:block;width:100%;border:
 :host([data-platform=tiktok]) [data-action=download] svg{width:24px;height:24px;stroke:none}
 :host([data-platform=tiktok]) .split{flex-direction:column}
 :host([data-platform=tiktok]) .split [data-action=options]{height:20px}
+:host([data-platform=tiktok][data-layout=native-row]) .split{flex-direction:row}
+:host([data-platform=tiktok][data-layout=native-row]) [data-action=download]{width:32px;height:32px;padding:6px}
+:host([data-platform=tiktok][data-layout=native-row]) [data-action=download] svg{width:20px;height:20px}
 :host([data-platform=instagram]) .feedback,:host([data-platform=tiktok]) .feedback{position:fixed;inset:auto;left:50%;bottom:24px;margin:0;border:0;transform:translateX(-50%);display:flex;align-items:center;gap:14px;max-width:calc(100vw - 32px);width:max-content;padding:12px 16px;background:#262626;color:#fff;border-radius:12px;box-shadow:0 4px 24px #0003;z-index:2147483646}
 :host([data-platform=instagram]) .feedback:not(:has(.status:not(:empty))),:host([data-platform=tiktok]) .feedback:not(:has(.status:not(:empty))){display:none}
 :host([data-platform=instagram]) .feedback .status,:host([data-platform=tiktok]) .feedback .status{position:static;min-width:0;max-width:300px;background:transparent;padding:0;box-shadow:none;color:inherit}
